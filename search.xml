@@ -4,6 +4,19 @@
   
     
     <entry>
+      <title>CVE复现</title>
+      <link href="/2026/08/27/CVE%E5%A4%8D%E7%8E%B0/"/>
+      <url>/2026/08/27/CVE%E5%A4%8D%E7%8E%B0/</url>
+      
+        <content type="html"><![CDATA[<p>3、启动靶场（重点：<strong>必须进入漏洞子目录</strong>，读取该目录下 docker‑compose.yml）</p><p>示例 1：Log4j2 CVE‑2021‑44228</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">cd ~/vulhub/log4j/CVE-2021-44228</span><br><span class="line">sudo docker compose up -d</span><br></pre></td></tr></table></figure><p>示例 2：Tomcat CVE‑2025‑24813</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">cd ~/vulhub/tomcat/CVE-2025-24813</span><br><span class="line">sudo docker compose up -d</span><br></pre></td></tr></table></figure><ul><li><code>-d</code>：后台运行容器，不阻塞终端</li><li>启动会自动拉取漏洞镜像，创建容器</li></ul><p>4、查看运行状态</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">#查看正在运行容器</span><br><span class="line">sudo docker ps</span><br><span class="line">#查看当前靶场的compose状态（必须在漏洞目录执行）</span><br><span class="line">sudo docker compose ps</span><br></pre></td></tr></table></figure><p>5、获取 Ubuntu 虚拟机访问 IP（浏览器 &#x2F; Burp 访问）</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ip a</span><br></pre></td></tr></table></figure><p>拿到 <code>ens33</code> 的 inet 地址，例如 <code>192.168.x.x</code>，<strong>这个是 your‑ip，不是容器内部 IP</strong>GitHub。</p><blockquote><p>访问格式：<code>http://192.168.x.x:端口</code>，每个漏洞 README 里写好端口。</p></blockquote><blockquote><p>每个漏洞文件夹里面有<code>README.md</code>，里面写复现 payload、访问端口。</p></blockquote><p>6、实验结束销毁环境❗（一定要在漏洞对应的文件夹执行）</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sudo docker compose down -v</span><br></pre></td></tr></table></figure><p><code>‑v</code>：删除容器 + 数据卷，环境彻底清理干净，不留残留，避免多个靶场互相干扰GitHub。</p><hr><p>高频踩坑清单</p><ol><li>❌不要在 vulhub 根目录执行<code>docker compose up</code>，必须进入对应 CVE 子文件夹。</li><li>端口冲突：虚拟机已有程序占用端口，修改<code>docker‑compose.yml</code>的 ports 映射。</li><li>镜像拉取慢：确认 <code>/etc/docker/daemon.json</code> 国内加速器配置正确。</li><li>文档里<code>your‑ip</code>&#x3D;Ubuntu 虚拟机 IP，<strong>不是宿主机 Windows，不是 docker 容器 ip</strong>GitHub。</li><li>只做学习复现，<strong>不要把漏洞环境暴露到公网</strong>。</li></ol><h3 id="漏洞复现完整流程记忆（vulhub）"><a href="#漏洞复现完整流程记忆（vulhub）" class="headerlink" title="漏洞复现完整流程记忆（vulhub）"></a>漏洞复现完整流程记忆（vulhub）</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">git clone https://github.com/vulhub/vulhub.git</span><br><span class="line">cd vulhub/log4j/CVE-2021-44228</span><br><span class="line">sudo docker compose up -d     # 拉镜像、启动靶场</span><br><span class="line">sudo docker ps                 # 确认容器运行</span><br><span class="line">ip a                           # 获取虚拟机IP访问页面</span><br><span class="line">sudo docker compose down -v    # 实验结束销毁</span><br></pre></td></tr></table></figure>]]></content>
+      
+      
+      
+    </entry>
+    
+    
+    
+    <entry>
       <title>butterfly主题部署心得</title>
       <link href="/2026/08/26/butterfly%E4%B8%BB%E9%A2%98%E9%83%A8%E7%BD%B2%E5%BF%83%E5%BE%97/"/>
       <url>/2026/08/26/butterfly%E4%B8%BB%E9%A2%98%E9%83%A8%E7%BD%B2%E5%BF%83%E5%BE%97/</url>
